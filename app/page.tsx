@@ -174,7 +174,7 @@ export default function LandingPage() {
                   <button
                     key={mode}
                     onClick={() => setAuthMode(mode as "login" | "register")}
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                    className={`rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap ${
                       authMode === mode
                         ? "bg-gray-900 text-white"
                         : "text-gray-600 hover:text-gray-900"

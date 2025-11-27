@@ -23,53 +23,6 @@ const tabs = [
   { id: "ussd", label: "USSD Flow" },
 ];
 
-const cases = [
-  {
-    id: "AC-204",
-    district: "Ablekuma Central",
-    language: "Ga",
-    issue: "Inaccessible Building",
-    status: "New",
-    loggedAt: "08:22",
-    demographics: "Female • Mobility aid",
-    officer: "Ama T.",
-    navigator: "Selorm",
-  },
-  {
-    id: "OB-118",
-    district: "Obuasi Municipal",
-    language: "Twi",
-    issue: "Disability Fund Delay",
-    status: "In Progress",
-    loggedAt: "09:04",
-    demographics: "Male • Vision",
-    officer: "Kojo B.",
-    navigator: "Akos",
-  },
-  {
-    id: "UE-077",
-    district: "Upper Denkyira East",
-    language: "Fante",
-    issue: "Discrimination / Abuse",
-    status: "Escalated",
-    loggedAt: "07:41",
-    demographics: "Woman • Hearing",
-    officer: "Serwaa D.",
-    navigator: "Musa",
-  },
-  {
-    id: "OB-099",
-    district: "Obuasi Municipal",
-    language: "English",
-    issue: "Other Service Issue",
-    status: "Resolved",
-    loggedAt: "06:10",
-    demographics: "Man • Albino",
-    officer: "Kojo B.",
-    navigator: "Akos",
-  },
-];
-
 const alertFeed = [
   {
     id: "AL-901",
@@ -138,9 +91,8 @@ export default function DashboardPage() {
   const [complaintStatus, setComplaintStatus] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState("cases");
-  const [districtFilter, setDistrictFilter] = useState("All districts");
   const [statusFilter, setStatusFilter] = useState("All statuses");
-  const [selectedCase, setSelectedCase] = useState(cases[0].id);
+  const [selectedCase, setSelectedCase] = useState<string | null>(null);
   const [activeAlerts, setActiveAlerts] = useState(alertFeed);
   const [activePath, setActivePath] = useState<"report" | "info" | "navigator">("report");
   const [assignmentModal, setAssignmentModal] = useState(false);
@@ -246,17 +198,25 @@ export default function DashboardPage() {
       timeStyle: "short",
     });
 
-  const filteredCases = useMemo(() => {
-    return cases.filter((c) => {
-      const districtMatch =
-        districtFilter === "All districts" || c.district === districtFilter;
-      const statusMatch =
-        statusFilter === "All statuses" || c.status === statusFilter;
-      return districtMatch && statusMatch;
-    });
-  }, [districtFilter, statusFilter]);
+  const filteredComplaints = useMemo(() => {
+    if (statusFilter === "All statuses") {
+      return liveComplaints;
+    }
 
-  const activeCase = filteredCases.find((c) => c.id === selectedCase) ?? filteredCases[0];
+    const statusMap: Record<string, ApiComplaint["status"]> = {
+      Pending: "pending",
+      "In Progress": "in_progress",
+      Resolved: "resolved",
+      Rejected: "rejected",
+    };
+
+    const backendStatus = statusMap[statusFilter];
+    if (!backendStatus) return liveComplaints;
+    return liveComplaints.filter((c) => c.status === backendStatus);
+  }, [liveComplaints, statusFilter]);
+
+  const activeComplaint =
+    filteredComplaints.find((c) => c.id === selectedCase) ?? filteredComplaints[0] ?? null;
 
   const handleSelect = (id: string) => {
     setSelectedCase(id);
@@ -508,24 +468,14 @@ const renderWebFlowReference = () => {
               <div className="flex flex-wrap gap-3">
                 <select
                   className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none"
-                  value={districtFilter}
-                  onChange={(e) => setDistrictFilter(e.target.value)}
-                >
-                  <option>All districts</option>
-                  <option>Ablekuma Central</option>
-                  <option>Obuasi Municipal</option>
-                  <option>Upper Denkyira East</option>
-                </select>
-                <select
-                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none"
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
                 >
                   <option>All statuses</option>
-                  <option>New</option>
+                  <option>Pending</option>
                   <option>In Progress</option>
-                  <option>Escalated</option>
                   <option>Resolved</option>
+                  <option>Rejected</option>
                 </select>
               </div>
             </div>
@@ -535,20 +485,21 @@ const renderWebFlowReference = () => {
               <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
                 <div className="border-b border-gray-200 px-6 py-4">
                   <h3 className="font-semibold text-gray-900">Active Cases</h3>
-                  <p className="text-sm text-gray-600">{filteredCases.length} cases showing</p>
+                  <p className="text-sm text-gray-600">
+                    {filteredComplaints.length} cases showing
+                  </p>
                 </div>
                 <div className="max-h-96 overflow-auto">
                   <table className="w-full">
                     <thead className="sticky top-0 bg-white">
                       <tr className="border-b border-gray-200">
                         <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">ID</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">District</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Issue</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Title</th>
                         <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {filteredCases.map((c) => (
+                      {filteredComplaints.map((c) => (
                         <tr
                           key={c.id}
                           className={`cursor-pointer transition-colors hover:bg-gray-50 ${
@@ -557,16 +508,18 @@ const renderWebFlowReference = () => {
                           onClick={() => handleSelect(c.id)}
                         >
                           <td className="px-6 py-4 text-sm font-medium text-gray-900">{c.id}</td>
-                          <td className="px-6 py-4 text-sm text-gray-700">{c.district}</td>
-                          <td className="px-6 py-4 text-sm text-gray-700">{c.issue}</td>
+                          <td className="px-6 py-4 text-sm text-gray-700">{c.title}</td>
                           <td className="px-6 py-4">
                             <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
-                              c.status === "New" ? "bg-yellow-100 text-yellow-800" :
-                              c.status === "In Progress" ? "bg-blue-100 text-blue-800" :
-                              c.status === "Escalated" ? "bg-red-100 text-red-800" :
-                              "bg-green-100 text-green-800"
+                              c.status === "pending"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : c.status === "in_progress"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : c.status === "resolved"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-gray-100 text-gray-800"
                             }`}>
-                              {c.status}
+                              {formatComplaintStatus(c.status)}
                             </span>
                           </td>
                         </tr>
@@ -578,25 +531,42 @@ const renderWebFlowReference = () => {
 
               {/* Case Details */}
               <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h3 className="font-semibold text-gray-900 mb-4">Case Details</h3>
-                {activeCase && (
+                <h3 className="mb-4 font-semibold text-gray-900">Case Details</h3>
+                {activeComplaint && (
                   <div className="space-y-4">
                     <div>
                       <p className="text-xs uppercase tracking-wide text-gray-500">Case ID</p>
-                      <p className="text-lg font-semibold text-gray-900">{activeCase.id}</p>
+                      <p className="text-lg font-semibold text-gray-900">{activeComplaint.id}</p>
                     </div>
                     <div>
-                      <p className="text-xs uppercase tracking-wide text-gray-500">Issue Type</p>
-                      <p className="text-gray-900">{activeCase.issue}</p>
+                      <p className="text-xs uppercase tracking-wide text-gray-500">
+                        Title
+                      </p>
+                      <p className="text-gray-900">{activeComplaint.title}</p>
                     </div>
                     <div>
-                      <p className="text-xs uppercase tracking-wide text-gray-500">Demographics</p>
-                      <p className="text-gray-700">{activeCase.demographics}</p>
+                      <p className="text-xs uppercase tracking-wide text-gray-500">
+                        Description
+                      </p>
+                      <p className="text-gray-700 whitespace-pre-line">
+                        {activeComplaint.description}
+                      </p>
                     </div>
                     <div>
-                      <p className="text-xs uppercase tracking-wide text-gray-500">Assignment</p>
-                      <p className="text-gray-700">Officer: {activeCase.officer}</p>
-                      <p className="text-gray-700">Navigator: {activeCase.navigator}</p>
+                      <p className="text-xs uppercase tracking-wide text-gray-500">
+                        Category
+                      </p>
+                      <p className="text-gray-700">
+                        {activeComplaint.category ?? "General"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-gray-500">
+                        Created
+                      </p>
+                      <p className="text-gray-700">
+                        {formatComplaintDate(activeComplaint.createdAt)}
+                      </p>
                     </div>
                     {lastAction && (
                       <div className="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">
@@ -817,9 +787,10 @@ const renderWebFlowReference = () => {
 
       {/* Main Content */}
       <main className="mx-auto max-w-7xl px-6 py-8">
-        <section className="mb-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="grid gap-8 lg:grid-cols-2">
-            <div>
+        {!isAdmin && (
+          <section className="mb-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="grid gap-8 lg:grid-cols-2">
+              <div>
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">
@@ -1037,7 +1008,9 @@ const renderWebFlowReference = () => {
             </div>
 
             <div className="rounded-2xl border border-gray-100 bg-gray-50/60 p-5">
-              <h2 className="text-lg font-semibold text-gray-900">Web app flow reference</h2>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Web app flow reference
+              </h2>
               <p className="text-sm text-gray-600">
                 Mirrors the steps you just followed on this form
               </p>
@@ -1045,15 +1018,14 @@ const renderWebFlowReference = () => {
             </div>
           </div>
         </section>
-        {isAdmin && (
+        )}
+        {!isAdmin && (
           <section className="mb-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Live Complaints
-                </h2>
+                <h2 className="text-lg font-semibold text-gray-900">My complaints</h2>
                 <p className="text-sm text-gray-600">
-                  Latest submissions from the hotline
+                  Complaints you’ve submitted and their current status
                 </p>
               </div>
               <button
@@ -1099,12 +1071,12 @@ const renderWebFlowReference = () => {
         )}
         {isAdmin && renderTabContent()}
       </main>
-      {assignmentModal && activeCase && (
+      {assignmentModal && activeComplaint && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 px-4">
           <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">
-                Assign case {activeCase.id}
+                Assign case {activeComplaint.id}
               </h3>
               <button
                 className="text-gray-500 hover:text-gray-900"
