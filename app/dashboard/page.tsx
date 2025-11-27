@@ -397,10 +397,6 @@ export default function DashboardPage() {
     setEscalationReason("");
   };
 
-  const handleDismissAlert = (id: string) => {
-    setActiveAlerts((current) => current.filter((alert) => alert.id !== id));
-  };
-
   useEffect(() => {
     const handleClick = (event: MouseEvent) => {
       if (!profileMenuRef.current) return;
@@ -948,9 +944,8 @@ const renderWebFlowReference = () => {
                   </div>
                   <div className="mt-4 flex items-center">
                     <span className={`text-sm font-semibold ${
-                      metric.trend === "up" && metric.color === "green" ? "text-green-600" :
-                      metric.trend === "down" && metric.color === "green" ? "text-green-600" :
-                      metric.trend === "up" && metric.color === "red" ? "text-red-600" :
+                      metric.color === "green" ? "text-green-600" :
+                      metric.color === "red" ? "text-red-600" :
                       "text-gray-600"
                     }`}>
                       {metric.change}
@@ -1017,11 +1012,13 @@ const renderWebFlowReference = () => {
                             ? "bg-yellow-100 text-yellow-800"
                             : update.oldStatus === "in_progress"
                               ? "bg-blue-100 text-blue-800"
-                              : update.oldStatus === "resolved"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-gray-100 text-gray-800"
+                              : update.oldStatus === "escalated"
+                                ? "bg-red-100 text-red-800"
+                                : update.oldStatus === "resolved"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-gray-100 text-gray-800"
                         }`}>
-                          {formatComplaintStatus(update.oldStatus)}
+                          {formatComplaintStatus(update.oldStatus as ApiComplaint["status"])}
                         </span>
                         <span className="text-gray-400">→</span>
                         <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
@@ -1029,11 +1026,13 @@ const renderWebFlowReference = () => {
                             ? "bg-yellow-100 text-yellow-800"
                             : update.newStatus === "in_progress"
                               ? "bg-blue-100 text-blue-800"
-                              : update.newStatus === "resolved"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-gray-100 text-gray-800"
+                              : update.newStatus === "escalated"
+                                ? "bg-red-100 text-red-800"
+                                : update.newStatus === "resolved"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-gray-100 text-gray-800"
                         }`}>
-                          {formatComplaintStatus(update.newStatus)}
+                          {formatComplaintStatus(update.newStatus as ApiComplaint["status"])}
                         </span>
                       </div>
                       <p className="mt-2 text-xs text-gray-500">{formatComplaintDate(update.updatedAt)}</p>

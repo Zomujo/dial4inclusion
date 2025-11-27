@@ -184,7 +184,7 @@ export async function updateComplaintStatus(
   token: string,
   complaintId: string,
   input: {
-    status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
+    status: 'pending' | 'in_progress' | 'resolved' | 'rejected' | 'escalated';
   }
 ): Promise<{ complaint: ApiComplaint }> {
   return apiFetch<{ complaint: ApiComplaint }>(`/complaints/${complaintId}/status`, {
