@@ -10,66 +10,28 @@ import {
 } from "@/lib/api";
 import { clearAuth, loadAuth } from "@/lib/storage";
 
-const insights = [
-  { label: "Active Cases", value: 42, change: "+6", trend: "up", color: "blue" },
-  { label: "Avg Response", value: "18h", change: "-2h", trend: "down", color: "green" },
-  { label: "Resolution Rate", value: "87%", change: "+5%", trend: "up", color: "purple" },
-  { label: "Overdue Cases", value: 5, change: "+2", trend: "up", color: "red" },
-];
-
 const tabs = [
   { id: "cases", label: "Cases" },
   { id: "monitoring", label: "Monitoring" },
   { id: "ussd", label: "USSD Flow" },
 ];
 
-const alertFeed = [
-  {
-    id: "AL-901",
-    district: "Ablekuma Central",
-    caseId: "AC-204",
-    message: "Initial response overdue (48h).",
-    timestamp: "32m ago",
-  },
-  {
-    id: "AL-876",
-    district: "Obuasi Municipal",
-    caseId: "OB-118",
-    message: "Navigator note missing after field visit.",
-    timestamp: "1h ago",
-  },
-  {
-    id: "AL-844",
-    district: "Upper Denkyira East",
-    caseId: "UE-077",
-    message: "Escalated for discrimination complaint.",
-    timestamp: "3h ago",
-  },
-];
+// Monitoring placeholders – we'll compute these from real data later.
+const alertFeed: {
+  id: string;
+  district: string;
+  caseId: string;
+  message: string;
+  timestamp: string;
+}[] = [];
 
-const navigatorNotes = [
-  {
-    id: "NV-501",
-    district: "Obuasi Municipal",
-    note: "Visited market, ramps now accessible. Waiting for officer confirmation.",
-    status: "Awaiting officer",
-    time: "Today • 09:15",
-  },
-  {
-    id: "NV-499",
-    district: "Ablekuma Central",
-    note: "PWD confirmed call-back received, still no fund release timeline shared.",
-    status: "Needs update",
-    time: "Yesterday • 17:40",
-  },
-  {
-    id: "NV-492",
-    district: "Upper Denkyira East",
-    note: "Assembly agreed to install signage; inspection scheduled Friday.",
-    status: "On track",
-    time: "Yesterday • 11:05",
-  },
-];
+const navigatorNotes: {
+  id: string;
+  district: string;
+  note: string;
+  status: string;
+  time: string;
+}[] = [];
 
 
 export default function DashboardPage() {
@@ -102,6 +64,41 @@ export default function DashboardPage() {
   const [webFlowStep, setWebFlowStep] = useState(0);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Metrics for Monitoring tab – TODO: derive from liveComplaints once we agree on rules.
+  const monitoringMetrics = useMemo(
+    () => [
+      {
+        label: "Active Cases",
+        value: liveComplaints.length || 0,
+        change: "0",
+        trend: "up" as const,
+        color: "blue" as const,
+      },
+      {
+        label: "Avg Response",
+        value: "0h",
+        change: "0h",
+        trend: "down" as const,
+        color: "green" as const,
+      },
+      {
+        label: "Resolution Rate",
+        value: "0%",
+        change: "0%",
+        trend: "up" as const,
+        color: "purple" as const,
+      },
+      {
+        label: "Overdue Cases",
+        value: 0,
+        change: "0",
+        trend: "up" as const,
+        color: "red" as const,
+      },
+    ],
+    [liveComplaints.length],
+  );
 
   useEffect(() => {
     const stored = loadAuth();
@@ -611,7 +608,7 @@ const renderWebFlowReference = () => {
 
             {/* Metrics Grid */}
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-              {insights.map((metric) => (
+              {monitoringMetrics.map((metric) => (
                 <div key={metric.label} className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
                   <div className="flex items-center justify-between">
                     <div>
@@ -654,17 +651,24 @@ const renderWebFlowReference = () => {
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-gray-900">Active Alerts</h3>
                     <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-800">
-                      {activeAlerts.length} active
+                      {alertFeed.length} active
                     </span>
                   </div>
                 </div>
                 <div className="divide-y divide-gray-200">
-                  {activeAlerts.map((alert) => (
+                  {alertFeed.length === 0 && (
+                    <p className="px-6 py-4 text-sm text-gray-600">
+                      No active alerts yet.
+                    </p>
+                  )}
+                  {alertFeed.map((alert) => (
                     <div key={alert.id} className="flex items-center justify-between p-6">
                       <div>
                         <p className="font-semibold text-gray-900">Case {alert.caseId}</p>
                         <p className="text-sm text-gray-700">{alert.message}</p>
-                        <p className="text-xs text-gray-500">{alert.district} • {alert.timestamp}</p>
+                        <p className="text-xs text-gray-500">
+                          {alert.district} • {alert.timestamp}
+                        </p>
                       </div>
                       <div className="flex gap-2">
                         <button
@@ -683,16 +687,23 @@ const renderWebFlowReference = () => {
               </div>
 
               <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h3 className="font-semibold text-gray-900 mb-4">Navigator Updates</h3>
+                <h3 className="mb-4 font-semibold text-gray-900">Navigator Updates</h3>
+                {navigatorNotes.length === 0 && (
+                  <p className="text-sm text-gray-600">No navigator updates yet.</p>
+                )}
                 <div className="space-y-4">
                   {navigatorNotes.slice(0, 3).map((note) => (
                     <div key={note.id} className="rounded-lg bg-gray-50 p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-semibold text-gray-500">{note.district}</span>
-                        <span className="rounded-full bg-gray-200 px-2 py-1 text-xs text-gray-700">{note.status}</span>
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="text-xs font-semibold text-gray-500">
+                          {note.district}
+                        </span>
+                        <span className="rounded-full bg-gray-200 px-2 py-1 text-xs text-gray-700">
+                          {note.status}
+                        </span>
                       </div>
                       <p className="text-sm text-gray-700">{note.note}</p>
-                      <p className="text-xs text-gray-500 mt-2">{note.time}</p>
+                      <p className="mt-2 text-xs text-gray-500">{note.time}</p>
                     </div>
                   ))}
                 </div>
