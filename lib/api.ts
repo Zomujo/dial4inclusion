@@ -65,10 +65,12 @@ export interface ApiComplaint {
   title: string;
   description: string;
   category: string | null;
-  status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
+  status: 'pending' | 'in_progress' | 'resolved' | 'rejected' | 'escalated';
   assignedNavigatorId: string | null;
   expectedResolutionDate: string | null;
   respondedAt: string | null;
+  escalatedAt: string | null;
+  escalationReason: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -139,6 +141,15 @@ export async function getNavigators(token: string): Promise<{
   });
 }
 
+export async function getAdmins(token: string): Promise<{
+  admins: ApiUser[];
+}> {
+  return apiFetch<{ admins: ApiUser[] }>('/users/admins', {
+    method: 'GET',
+    token,
+  });
+}
+
 export async function assignComplaint(
   token: string,
   complaintId: string,
@@ -148,6 +159,21 @@ export async function assignComplaint(
   }
 ): Promise<{ complaint: ApiComplaint }> {
   return apiFetch<{ complaint: ApiComplaint }>(`/complaints/${complaintId}/assign`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+    token,
+  });
+}
+
+export async function escalateComplaint(
+  token: string,
+  complaintId: string,
+  input: {
+    targetAdminId: string;
+    reason: string;
+  }
+): Promise<{ complaint: ApiComplaint }> {
+  return apiFetch<{ complaint: ApiComplaint }>(`/complaints/${complaintId}/escalate`, {
     method: 'PATCH',
     body: JSON.stringify(input),
     token,

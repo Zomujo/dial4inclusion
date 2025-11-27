@@ -4,6 +4,8 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   assignComplaint as assignComplaintApi,
+  escalateComplaint as escalateComplaintApi,
+  getAdmins,
   getComplaintStats,
   getComplaints,
   getNavigatorUpdates,
@@ -49,11 +51,17 @@ export default function DashboardPage() {
   const [navigatorUpdates, setNavigatorUpdates] = useState<NavigatorUpdate[]>([]);
   const [activePath, setActivePath] = useState<"report" | "info" | "navigator">("report");
   const [assignmentModal, setAssignmentModal] = useState(false);
+  const [escalationModal, setEscalationModal] = useState(false);
   const [assignee, setAssignee] = useState("");
   const [expectedResolutionDate, setExpectedResolutionDate] = useState("");
+  const [targetAdmin, setTargetAdmin] = useState("");
+  const [escalationReason, setEscalationReason] = useState("");
   const [navigators, setNavigators] = useState<ApiUser[]>([]);
+  const [admins, setAdmins] = useState<ApiUser[]>([]);
   const [navigatorsLoading, setNavigatorsLoading] = useState(false);
+  const [adminsLoading, setAdminsLoading] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const [escalating, setEscalating] = useState(false);
   const [lastAction, setLastAction] =
     useState<{ type: "assign" | "escalate"; detail: string } | null>(null);
   const [webFlowStep, setWebFlowStep] = useState(0);
@@ -136,6 +144,9 @@ export default function DashboardPage() {
       refreshStats();
       refreshNavigatorUpdates();
       refreshOverdueComplaints();
+      // Load navigators and admins for displaying names in case details
+      fetchNavigators();
+      fetchAdmins();
     }
   }, [token, currentUser?.role]);
 
@@ -196,6 +207,27 @@ export default function DashboardPage() {
     }
   };
 
+  const handleOpenEscalationModal = () => {
+    setEscalationModal(true);
+    if (admins.length === 0) {
+      fetchAdmins();
+    }
+  };
+
+  const fetchAdmins = async () => {
+    if (!token || currentUser?.role !== 'admin') return;
+    setAdminsLoading(true);
+    try {
+      const { admins } = await getAdmins(token);
+      // Include all admins (including current user)
+      setAdmins(admins);
+    } catch (error) {
+      console.error('Failed to load admins:', error);
+    } finally {
+      setAdminsLoading(false);
+    }
+  };
+
   const handleAssign = async () => {
     if (!token || !activeComplaint || !assignee) return;
     setAssigning(true);
@@ -229,6 +261,38 @@ export default function DashboardPage() {
       alert(error instanceof Error ? error.message : 'Failed to assign complaint');
     } finally {
       setAssigning(false);
+    }
+  };
+
+  const handleEscalate = async () => {
+    if (!token || !activeComplaint || !targetAdmin || !escalationReason) return;
+    setEscalating(true);
+    try {
+      const { complaint } = await escalateComplaintApi(token, activeComplaint.id, {
+        targetAdminId: targetAdmin,
+        reason: escalationReason,
+      });
+      // Update the complaint in the list
+      setLiveComplaints((prev) =>
+        prev.map((c) => (c.id === complaint.id ? complaint : c))
+      );
+      const admin = admins.find((a) => a.id === targetAdmin);
+      setLastAction({
+        type: 'escalate',
+        detail: admin?.fullName || targetAdmin,
+      });
+      setEscalationModal(false);
+      setTargetAdmin('');
+      setEscalationReason('');
+      // Refresh stats
+      if (currentUser?.role === 'admin') {
+        refreshStats();
+      }
+    } catch (error) {
+      console.error('Failed to escalate complaint:', error);
+      alert(error instanceof Error ? error.message : 'Failed to escalate complaint');
+    } finally {
+      setEscalating(false);
     }
   };
 
@@ -294,6 +358,13 @@ export default function DashboardPage() {
       timeStyle: "short",
     });
 
+  const escalatedToMe = useMemo(() => {
+    if (!currentUser || currentUser.role !== 'admin') return [];
+    return liveComplaints.filter(
+      (c) => c.status === 'escalated' && c.assignedNavigatorId === currentUser.id
+    );
+  }, [liveComplaints, currentUser]);
+
   const filteredComplaints = useMemo(() => {
     if (statusFilter === "All statuses") {
       return liveComplaints;
@@ -302,6 +373,7 @@ export default function DashboardPage() {
     const statusMap: Record<string, ApiComplaint["status"]> = {
       Pending: "pending",
       "In Progress": "in_progress",
+      Escalated: "escalated",
       Resolved: "resolved",
       Rejected: "rejected",
     };
@@ -318,8 +390,11 @@ export default function DashboardPage() {
     setSelectedCase(id);
     setLastAction(null);
     setAssignmentModal(false);
+    setEscalationModal(false);
     setAssignee("");
     setExpectedResolutionDate("");
+    setTargetAdmin("");
+    setEscalationReason("");
   };
 
   const handleDismissAlert = (id: string) => {
@@ -557,6 +632,75 @@ const renderWebFlowReference = () => {
       case "cases":
   return (
           <div className="space-y-6">
+            {/* Escalations Section - Only for admins */}
+            {isAdmin && escalatedToMe.length > 0 && (
+              <div className="rounded-xl border-2 border-red-200 bg-red-50 p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-xl font-semibold text-red-900">Escalations</h2>
+                    <p className="text-sm text-red-700">
+                      {escalatedToMe.length} case{escalatedToMe.length !== 1 ? 's' : ''} escalated to you
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-800">
+                    {escalatedToMe.length}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {escalatedToMe.map((complaint) => (
+                    <div
+                      key={complaint.id}
+                      className="rounded-lg border border-red-200 bg-white p-4 hover:bg-red-50 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div 
+                          className="flex-1 cursor-pointer"
+                          onClick={() => handleSelect(complaint.id)}
+                        >
+                          <p className="font-semibold text-gray-900">{complaint.title}</p>
+                          <p className="text-sm text-gray-600 mt-1 line-clamp-1">{complaint.description}</p>
+                          {complaint.escalationReason && (
+                            <p className="text-xs text-red-700 mt-1 italic">
+                              Reason: {complaint.escalationReason}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <select
+                            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+                            value={complaint.status}
+                            onChange={async (e) => {
+                              e.stopPropagation();
+                              if (!token) return;
+                              const newStatus = e.target.value as ApiComplaint['status'];
+                              try {
+                                const { complaint: updated } = await updateComplaintStatusApi(token, complaint.id, {
+                                  status: newStatus,
+                                });
+                                setLiveComplaints((prev) =>
+                                  prev.map((c) => (c.id === updated.id ? updated : c))
+                                );
+                                refreshStats();
+                              } catch (error) {
+                                console.error('Failed to update status:', error);
+                                alert(error instanceof Error ? error.message : 'Failed to update status');
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <option value="escalated">Escalated</option>
+                            <option value="pending">Pending</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="resolved">Resolved</option>
+                            <option value="rejected">Rejected</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {/* Cases Tab Content */}
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
@@ -576,6 +720,7 @@ const renderWebFlowReference = () => {
                   <option>All statuses</option>
                   <option>Pending</option>
                   <option>In Progress</option>
+                  <option>Escalated</option>
                   <option>Resolved</option>
                   <option>Rejected</option>
                 </select>
@@ -617,9 +762,11 @@ const renderWebFlowReference = () => {
                                 ? "bg-yellow-100 text-yellow-800"
                                 : c.status === "in_progress"
                                   ? "bg-blue-100 text-blue-800"
-                                  : c.status === "resolved"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-gray-100 text-gray-800"
+                                  : c.status === "escalated"
+                                    ? "bg-red-100 text-red-800"
+                                    : c.status === "resolved"
+                                      ? "bg-green-100 text-green-800"
+                                      : "bg-gray-100 text-gray-800"
                             }`}>
                               {formatComplaintStatus(c.status)}
                             </span>
@@ -673,10 +820,12 @@ const renderWebFlowReference = () => {
                     {activeComplaint.assignedNavigatorId && (
                       <div>
                         <p className="text-xs uppercase tracking-wide text-gray-500">
-                          Assigned Navigator
+                          {activeComplaint.status === 'escalated' ? 'Escalated To' : 'Assigned Navigator'}
                         </p>
                         <p className="text-gray-700">
-                          {navigators.find((n) => n.id === activeComplaint.assignedNavigatorId)?.fullName || 'Unknown'}
+                          {navigators.find((n) => n.id === activeComplaint.assignedNavigatorId)?.fullName ||
+                           admins.find((a) => a.id === activeComplaint.assignedNavigatorId)?.fullName ||
+                           'Unknown'}
                         </p>
                       </div>
                     )}
@@ -687,6 +836,16 @@ const renderWebFlowReference = () => {
                         </p>
                         <p className="text-gray-700">
                           {formatComplaintDate(activeComplaint.expectedResolutionDate)}
+                        </p>
+                      </div>
+                    )}
+                    {activeComplaint.status === 'escalated' && activeComplaint.escalationReason && (
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-gray-500">
+                          Escalation Reason
+                        </p>
+                        <p className="text-gray-700 whitespace-pre-line">
+                          {activeComplaint.escalationReason}
                         </p>
                       </div>
                     )}
@@ -708,12 +867,7 @@ const renderWebFlowReference = () => {
                           </button>
                           <button
                             className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
-                            onClick={() => {
-                              setLastAction({
-                                type: "escalate",
-                                detail: "Assembly supervisor",
-                              });
-                            }}
+                            onClick={handleOpenEscalationModal}
                           >
                             Escalate
                           </button>
@@ -1330,6 +1484,85 @@ const renderWebFlowReference = () => {
                 onClick={handleAssign}
               >
                 {assigning ? 'Assigning...' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {escalationModal && activeComplaint && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Escalate case {activeComplaint.id}
+              </h3>
+              <button
+                className="text-gray-500 hover:text-gray-900"
+                onClick={() => {
+                  setEscalationModal(false);
+                  setTargetAdmin("");
+                  setEscalationReason("");
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <p className="mt-2 text-sm text-gray-600">
+              Escalate this case to another admin for review.
+            </p>
+            <div className="mt-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Escalate To Admin
+                </label>
+                <select
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
+                  value={targetAdmin}
+                  onChange={(event) => setTargetAdmin(event.target.value)}
+                  disabled={adminsLoading}
+                >
+                  <option value="">Select Admin</option>
+                  {admins.map((admin) => (
+                    <option key={admin.id} value={admin.id}>
+                      {admin.fullName} ({admin.email})
+                    </option>
+                  ))}
+                </select>
+                {adminsLoading && (
+                  <p className="mt-1 text-xs text-gray-500">Loading admins...</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Reason for Escalation <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
+                  rows={4}
+                  value={escalationReason}
+                  onChange={(e) => setEscalationReason(e.target.value)}
+                  placeholder="Explain why this case needs to be escalated..."
+                />
+              </div>
+            </div>
+            <div className="mt-6 flex gap-3">
+              <button
+                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                onClick={() => {
+                  setEscalationModal(false);
+                  setTargetAdmin("");
+                  setEscalationReason("");
+                }}
+                disabled={escalating}
+              >
+                Cancel
+              </button>
+              <button
+                disabled={!targetAdmin || !escalationReason || escalating}
+                className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-300"
+                onClick={handleEscalate}
+              >
+                {escalating ? 'Escalating...' : 'Escalate'}
               </button>
             </div>
           </div>
