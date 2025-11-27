@@ -56,7 +56,7 @@ export interface ApiUser {
   id: string;
   email: string;
   fullName: string;
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'navigator';
 }
 
 export interface ApiComplaint {
@@ -66,6 +66,9 @@ export interface ApiComplaint {
   description: string;
   category: string | null;
   status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
+  assignedNavigatorId: string | null;
+  expectedResolutionDate: string | null;
+  respondedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -123,6 +126,91 @@ export async function submitComplaint(
   return apiFetch<{ complaint: ApiComplaint }>('/complaints', {
     method: 'POST',
     body: JSON.stringify(input),
+    token,
+  });
+}
+
+export async function getNavigators(token: string): Promise<{
+  navigators: ApiUser[];
+}> {
+  return apiFetch<{ navigators: ApiUser[] }>('/users/navigators', {
+    method: 'GET',
+    token,
+  });
+}
+
+export async function assignComplaint(
+  token: string,
+  complaintId: string,
+  input: {
+    navigatorId: string;
+    expectedResolutionDate?: string;
+  }
+): Promise<{ complaint: ApiComplaint }> {
+  return apiFetch<{ complaint: ApiComplaint }>(`/complaints/${complaintId}/assign`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+    token,
+  });
+}
+
+export async function updateComplaintStatus(
+  token: string,
+  complaintId: string,
+  input: {
+    status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
+  }
+): Promise<{ complaint: ApiComplaint }> {
+  return apiFetch<{ complaint: ApiComplaint }>(`/complaints/${complaintId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+    token,
+  });
+}
+
+export interface ComplaintStats {
+  activeCases: number;
+  avgResponseHours: number;
+  resolutionRate: number;
+  overdueCases: number;
+}
+
+export async function getComplaintStats(token: string): Promise<{
+  stats: ComplaintStats;
+}> {
+  return apiFetch<{ stats: ComplaintStats }>('/complaints/stats', {
+    method: 'GET',
+    token,
+  });
+}
+
+export interface NavigatorUpdate {
+  id: string;
+  complaintId: string;
+  complaintTitle: string;
+  navigatorName: string;
+  navigatorEmail: string;
+  oldStatus: string;
+  newStatus: string;
+  updatedAt: string;
+}
+
+export async function getNavigatorUpdates(
+  token: string,
+  limit?: number
+): Promise<{ updates: NavigatorUpdate[] }> {
+  const params = limit ? `?limit=${limit}` : '';
+  return apiFetch<{ updates: NavigatorUpdate[] }>(`/complaints/navigator-updates${params}`, {
+    method: 'GET',
+    token,
+  });
+}
+
+export async function getOverdueComplaints(token: string): Promise<{
+  complaints: ApiComplaint[];
+}> {
+  return apiFetch<{ complaints: ApiComplaint[] }>('/complaints/overdue', {
+    method: 'GET',
     token,
   });
 }

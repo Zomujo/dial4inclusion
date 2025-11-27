@@ -3,10 +3,17 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  assignComplaint as assignComplaintApi,
+  getComplaintStats,
   getComplaints,
+  getNavigatorUpdates,
+  getNavigators,
+  getOverdueComplaints,
   submitComplaint as submitComplaintApi,
+  updateComplaintStatus as updateComplaintStatusApi,
   type ApiComplaint,
   type ApiUser,
+  type NavigatorUpdate,
 } from "@/lib/api";
 import { clearAuth, loadAuth } from "@/lib/storage";
 
@@ -15,23 +22,6 @@ const tabs = [
   { id: "monitoring", label: "Monitoring" },
   { id: "ussd", label: "USSD Flow" },
 ];
-
-// Monitoring placeholders – we'll compute these from real data later.
-const alertFeed: {
-  id: string;
-  district: string;
-  caseId: string;
-  message: string;
-  timestamp: string;
-}[] = [];
-
-const navigatorNotes: {
-  id: string;
-  district: string;
-  note: string;
-  status: string;
-  time: string;
-}[] = [];
 
 
 export default function DashboardPage() {
@@ -55,49 +45,60 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("cases");
   const [statusFilter, setStatusFilter] = useState("All statuses");
   const [selectedCase, setSelectedCase] = useState<string | null>(null);
-  const [activeAlerts, setActiveAlerts] = useState(alertFeed);
+  const [overdueComplaints, setOverdueComplaints] = useState<ApiComplaint[]>([]);
+  const [navigatorUpdates, setNavigatorUpdates] = useState<NavigatorUpdate[]>([]);
   const [activePath, setActivePath] = useState<"report" | "info" | "navigator">("report");
   const [assignmentModal, setAssignmentModal] = useState(false);
   const [assignee, setAssignee] = useState("");
+  const [expectedResolutionDate, setExpectedResolutionDate] = useState("");
+  const [navigators, setNavigators] = useState<ApiUser[]>([]);
+  const [navigatorsLoading, setNavigatorsLoading] = useState(false);
+  const [assigning, setAssigning] = useState(false);
   const [lastAction, setLastAction] =
     useState<{ type: "assign" | "escalate"; detail: string } | null>(null);
   const [webFlowStep, setWebFlowStep] = useState(0);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
+  const [monitoringStats, setMonitoringStats] = useState<{
+    activeCases: number;
+    avgResponseHours: number;
+    resolutionRate: number;
+    overdueCases: number;
+  } | null>(null);
 
-  // Metrics for Monitoring tab – TODO: derive from liveComplaints once we agree on rules.
+  // Metrics for Monitoring tab
   const monitoringMetrics = useMemo(
     () => [
       {
         label: "Active Cases",
-        value: liveComplaints.length || 0,
+        value: monitoringStats?.activeCases ?? 0,
         change: "0",
         trend: "up" as const,
         color: "blue" as const,
       },
       {
         label: "Avg Response",
-        value: "0h",
+        value: `${monitoringStats?.avgResponseHours ?? 0}h`,
         change: "0h",
         trend: "down" as const,
         color: "green" as const,
       },
       {
         label: "Resolution Rate",
-        value: "0%",
+        value: `${monitoringStats?.resolutionRate ?? 0}%`,
         change: "0%",
         trend: "up" as const,
         color: "purple" as const,
       },
       {
         label: "Overdue Cases",
-        value: 0,
+        value: monitoringStats?.overdueCases ?? 0,
         change: "0",
         trend: "up" as const,
         color: "red" as const,
       },
     ],
-    [liveComplaints.length],
+    [monitoringStats],
   );
 
   useEffect(() => {
@@ -131,7 +132,105 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!token) return;
     refreshComplaints();
-  }, [token]);
+    if (currentUser?.role === 'admin') {
+      refreshStats();
+      refreshNavigatorUpdates();
+      refreshOverdueComplaints();
+    }
+  }, [token, currentUser?.role]);
+
+  useEffect(() => {
+    if (activeTab === 'monitoring' && token && currentUser?.role === 'admin') {
+      refreshNavigatorUpdates();
+      refreshOverdueComplaints();
+    }
+  }, [activeTab, token, currentUser?.role]);
+
+  const refreshStats = async () => {
+    if (!token) return;
+    try {
+      const { stats } = await getComplaintStats(token);
+      setMonitoringStats(stats);
+    } catch (error) {
+      console.error('Failed to load stats:', error);
+    }
+  };
+
+  const refreshNavigatorUpdates = async () => {
+    if (!token) return;
+    try {
+      const { updates } = await getNavigatorUpdates(token, 10);
+      setNavigatorUpdates(updates);
+    } catch (error) {
+      console.error('Failed to load navigator updates:', error);
+    }
+  };
+
+  const refreshOverdueComplaints = async () => {
+    if (!token) return;
+    try {
+      const { complaints } = await getOverdueComplaints(token);
+      setOverdueComplaints(complaints);
+    } catch (error) {
+      console.error('Failed to load overdue complaints:', error);
+    }
+  };
+
+  const fetchNavigators = async () => {
+    if (!token || currentUser?.role !== 'admin') return;
+    setNavigatorsLoading(true);
+    try {
+      const { navigators } = await getNavigators(token);
+      setNavigators(navigators);
+    } catch (error) {
+      console.error('Failed to load navigators:', error);
+    } finally {
+      setNavigatorsLoading(false);
+    }
+  };
+
+  const handleOpenAssignmentModal = () => {
+    setAssignmentModal(true);
+    if (navigators.length === 0) {
+      fetchNavigators();
+    }
+  };
+
+  const handleAssign = async () => {
+    if (!token || !activeComplaint || !assignee) return;
+    setAssigning(true);
+    try {
+      // Convert datetime-local to ISO string
+      const expectedDate = expectedResolutionDate
+        ? new Date(expectedResolutionDate).toISOString()
+        : undefined;
+      const { complaint } = await assignComplaintApi(token, activeComplaint.id, {
+        navigatorId: assignee,
+        expectedResolutionDate: expectedDate,
+      });
+      // Update the complaint in the list
+      setLiveComplaints((prev) =>
+        prev.map((c) => (c.id === complaint.id ? complaint : c))
+      );
+      const navigator = navigators.find((n) => n.id === assignee);
+      setLastAction({
+        type: 'assign',
+        detail: navigator?.fullName || assignee,
+      });
+      setAssignmentModal(false);
+      setAssignee('');
+      setExpectedResolutionDate('');
+      // Refresh stats if admin
+      if (currentUser?.role === 'admin') {
+        refreshStats();
+      }
+    } catch (error) {
+      console.error('Failed to assign complaint:', error);
+      alert(error instanceof Error ? error.message : 'Failed to assign complaint');
+    } finally {
+      setAssigning(false);
+    }
+  };
 
   const handleLogout = () => {
     clearAuth();
@@ -220,6 +319,7 @@ export default function DashboardPage() {
     setLastAction(null);
     setAssignmentModal(false);
     setAssignee("");
+    setExpectedResolutionDate("");
   };
 
   const handleDismissAlert = (id: string) => {
@@ -254,6 +354,7 @@ export default function DashboardPage() {
   }
 
   const isAdmin = currentUser.role === "admin";
+  const isNavigator = currentUser.role === "navigator";
 
   const mainMenuHint =
     activePath === "report"
@@ -459,8 +560,12 @@ const renderWebFlowReference = () => {
             {/* Cases Tab Content */}
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">Case Management</h2>
-                <p className="text-gray-600">Monitor and triage incoming PWD complaints</p>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {isAdmin ? 'Case Management' : 'My Assigned Cases'}
+                </h2>
+                <p className="text-gray-600">
+                  {isAdmin ? 'Monitor and triage incoming PWD complaints' : 'View and manage your assigned cases'}
+                </p>
               </div>
               <div className="flex flex-wrap gap-3">
                 <select
@@ -565,6 +670,26 @@ const renderWebFlowReference = () => {
                         {formatComplaintDate(activeComplaint.createdAt)}
                       </p>
                     </div>
+                    {activeComplaint.assignedNavigatorId && (
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-gray-500">
+                          Assigned Navigator
+                        </p>
+                        <p className="text-gray-700">
+                          {navigators.find((n) => n.id === activeComplaint.assignedNavigatorId)?.fullName || 'Unknown'}
+                        </p>
+                      </div>
+                    )}
+                    {activeComplaint.expectedResolutionDate && (
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-gray-500">
+                          Expected Resolution
+                        </p>
+                        <p className="text-gray-700">
+                          {formatComplaintDate(activeComplaint.expectedResolutionDate)}
+                        </p>
+                      </div>
+                    )}
                     {lastAction && (
                       <div className="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">
                         {lastAction.type === "assign"
@@ -572,24 +697,62 @@ const renderWebFlowReference = () => {
                           : `Escalated to ${lastAction.detail}`}
                       </div>
                     )}
-                    <div className="flex gap-2 pt-4">
-                      <button
-                        className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                        onClick={() => setAssignmentModal(true)}
-                      >
-                        Assign
-                      </button>
-                      <button
-                        className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
-                        onClick={() => {
-                          setLastAction({
-                            type: "escalate",
-                            detail: "Assembly supervisor",
-                          });
-                        }}
-                      >
-                        Escalate
-                      </button>
+                    <div className="space-y-3 pt-4">
+                      {isAdmin && (
+                        <div className="flex gap-2">
+                          <button
+                            className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                            onClick={handleOpenAssignmentModal}
+                          >
+                            Assign
+                          </button>
+                          <button
+                            className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                            onClick={() => {
+                              setLastAction({
+                                type: "escalate",
+                                detail: "Assembly supervisor",
+                              });
+                            }}
+                          >
+                            Escalate
+                          </button>
+                        </div>
+                      )}
+                      {(isAdmin || isNavigator) && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Update Status
+                          </label>
+                          <select
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                            value={activeComplaint.status}
+                            onChange={async (e) => {
+                              if (!token) return;
+                              const newStatus = e.target.value as ApiComplaint['status'];
+                              try {
+                                const { complaint } = await updateComplaintStatusApi(token, activeComplaint.id, {
+                                  status: newStatus,
+                                });
+                                setLiveComplaints((prev) =>
+                                  prev.map((c) => (c.id === complaint.id ? complaint : c))
+                                );
+                                if (isAdmin) {
+                                  refreshStats();
+                                }
+                              } catch (error) {
+                                console.error('Failed to update status:', error);
+                                alert(error instanceof Error ? error.message : 'Failed to update status');
+                              }
+                            }}
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="resolved">Resolved</option>
+                            <option value="rejected">Rejected</option>
+                          </select>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -651,35 +814,29 @@ const renderWebFlowReference = () => {
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-gray-900">Active Alerts</h3>
                     <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-800">
-                      {alertFeed.length} active
+                      {overdueComplaints.length} overdue
                     </span>
                   </div>
                 </div>
-                <div className="divide-y divide-gray-200">
-                  {alertFeed.length === 0 && (
+                <div className="divide-y divide-gray-200 max-h-96 overflow-auto">
+                  {overdueComplaints.length === 0 && (
                     <p className="px-6 py-4 text-sm text-gray-600">
-                      No active alerts yet.
+                      No overdue cases.
                     </p>
                   )}
-                  {alertFeed.map((alert) => (
-                    <div key={alert.id} className="flex items-center justify-between p-6">
+                  {overdueComplaints.map((complaint) => (
+                    <div key={complaint.id} className="p-6">
                       <div>
-                        <p className="font-semibold text-gray-900">Case {alert.caseId}</p>
-                        <p className="text-sm text-gray-700">{alert.message}</p>
-                        <p className="text-xs text-gray-500">
-                          {alert.district} • {alert.timestamp}
+                        <p className="font-semibold text-gray-900">Case {complaint.id.slice(0, 8)}</p>
+                        <p className="text-sm text-gray-700">{complaint.title}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Expected: {complaint.expectedResolutionDate 
+                            ? formatComplaintDate(complaint.expectedResolutionDate)
+                            : 'N/A'}
                         </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleDismissAlert(alert.id)}
-                          className="rounded-lg bg-green-600 px-3 py-1 text-xs font-semibold text-white hover:bg-green-700"
-                        >
-                          Resolve
-                        </button>
-                        <button className="rounded-lg bg-gray-600 px-3 py-1 text-xs font-semibold text-white hover:bg-gray-700">
-                          Snooze
-                        </button>
+                        <p className="text-xs text-gray-500">
+                          Status: {formatComplaintStatus(complaint.status)}
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -688,22 +845,44 @@ const renderWebFlowReference = () => {
 
               <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
                 <h3 className="mb-4 font-semibold text-gray-900">Navigator Updates</h3>
-                {navigatorNotes.length === 0 && (
+                {navigatorUpdates.length === 0 && (
                   <p className="text-sm text-gray-600">No navigator updates yet.</p>
                 )}
-                <div className="space-y-4">
-                  {navigatorNotes.slice(0, 3).map((note) => (
-                    <div key={note.id} className="rounded-lg bg-gray-50 p-4">
-                      <div className="mb-2 flex items-center justify-between">
-                        <span className="text-xs font-semibold text-gray-500">
-                          {note.district}
+                <div className="space-y-4 max-h-96 overflow-auto">
+                  {navigatorUpdates.map((update) => (
+                    <div key={update.id} className="rounded-lg bg-gray-50 p-4">
+                      <div className="mb-2">
+                        <p className="text-xs font-semibold text-gray-500 mb-1">
+                          {update.navigatorName}
+                        </p>
+                        <p className="text-sm font-medium text-gray-900">{update.complaintTitle}</p>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                          update.oldStatus === "pending"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : update.oldStatus === "in_progress"
+                              ? "bg-blue-100 text-blue-800"
+                              : update.oldStatus === "resolved"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-gray-100 text-gray-800"
+                        }`}>
+                          {formatComplaintStatus(update.oldStatus)}
                         </span>
-                        <span className="rounded-full bg-gray-200 px-2 py-1 text-xs text-gray-700">
-                          {note.status}
+                        <span className="text-gray-400">→</span>
+                        <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                          update.newStatus === "pending"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : update.newStatus === "in_progress"
+                              ? "bg-blue-100 text-blue-800"
+                              : update.newStatus === "resolved"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-gray-100 text-gray-800"
+                        }`}>
+                          {formatComplaintStatus(update.newStatus)}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-700">{note.note}</p>
-                      <p className="mt-2 text-xs text-gray-500">{note.time}</p>
+                      <p className="mt-2 text-xs text-gray-500">{formatComplaintDate(update.updatedAt)}</p>
                     </div>
                   ))}
                 </div>
@@ -730,9 +909,9 @@ const renderWebFlowReference = () => {
               <h1 className="text-xl font-bold text-gray-900">Dial4Inclusion</h1>
               <p className="text-sm text-gray-600">PWD Response Dashboard</p>
             </div>
-            {isAdmin && (
+            {(isAdmin || isNavigator) && (
               <div className="flex rounded-lg bg-gray-100 p-1">
-                {tabs.map((tab) => (
+                {(isAdmin ? tabs : tabs.filter(t => t.id !== 'monitoring')).map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
@@ -798,7 +977,7 @@ const renderWebFlowReference = () => {
 
       {/* Main Content */}
       <main className="mx-auto max-w-7xl px-6 py-8">
-        {!isAdmin && (
+        {currentUser.role === 'user' && (
           <section className="mb-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="grid gap-8 lg:grid-cols-2">
               <div>
@@ -1030,7 +1209,7 @@ const renderWebFlowReference = () => {
           </div>
         </section>
         )}
-        {!isAdmin && (
+        {currentUser.role === 'user' && (
           <section className="mb-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
@@ -1080,7 +1259,7 @@ const renderWebFlowReference = () => {
             </div>
           </section>
         )}
-        {isAdmin && renderTabContent()}
+        {(isAdmin || isNavigator) && renderTabContent()}
       </main>
       {assignmentModal && activeComplaint && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 px-4">
@@ -1099,35 +1278,58 @@ const renderWebFlowReference = () => {
             <p className="mt-2 text-sm text-gray-600">
               Pick a Navigator to take ownership of this case.
             </p>
-            <select
-              className="mt-6 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
-              value={assignee}
-              onChange={(event) => setAssignee(event.target.value)}
-            >
-              <option value="">Select Navigator</option>
-              <option value="Selorm">Selorm</option>
-              <option value="Akos">Akos</option>
-              <option value="Musa">Musa</option>
-              <option value="Ama T.">Ama T.</option>
-            </select>
+            <div className="mt-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Navigator
+                </label>
+                <select
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
+                  value={assignee}
+                  onChange={(event) => setAssignee(event.target.value)}
+                  disabled={navigatorsLoading}
+                >
+                  <option value="">Select Navigator</option>
+                  {navigators.map((nav) => (
+                    <option key={nav.id} value={nav.id}>
+                      {nav.fullName} ({nav.email})
+                    </option>
+                  ))}
+                </select>
+                {navigatorsLoading && (
+                  <p className="mt-1 text-xs text-gray-500">Loading navigators...</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Expected Resolution Date (optional)
+                </label>
+                <input
+                  type="datetime-local"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
+                  value={expectedResolutionDate}
+                  onChange={(e) => setExpectedResolutionDate(e.target.value)}
+                />
+              </div>
+            </div>
             <div className="mt-6 flex gap-3">
               <button
                 className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                onClick={() => setAssignmentModal(false)}
+                onClick={() => {
+                  setAssignmentModal(false);
+                  setAssignee("");
+                  setExpectedResolutionDate("");
+                }}
+                disabled={assigning}
               >
                 Cancel
               </button>
               <button
-                disabled={!assignee}
+                disabled={!assignee || assigning}
                 className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
-                onClick={() => {
-                  if (!assignee) return;
-                  setLastAction({ type: "assign", detail: assignee });
-                  setAssignmentModal(false);
-                  setAssignee("");
-                }}
+                onClick={handleAssign}
               >
-                Confirm
+                {assigning ? 'Assigning...' : 'Confirm'}
               </button>
             </div>
           </div>
