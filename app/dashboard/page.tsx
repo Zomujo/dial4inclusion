@@ -16,6 +16,7 @@ import {
   getComplaintStats,
   getComplaints,
   getNavigatorUpdates,
+  getDistrictOfficers,
   getNavigators,
   getOverdueComplaints,
   submitComplaint as submitComplaintApi,
@@ -85,8 +86,9 @@ export default function DashboardPage() {
   const [targetAdmin, setTargetAdmin] = useState("");
   const [escalationReason, setEscalationReason] = useState("");
   const [navigators, setNavigators] = useState<ApiUser[]>([]);
+  const [districtOfficers, setDistrictOfficers] = useState<ApiUser[]>([]);
   const [admins, setAdmins] = useState<ApiUser[]>([]);
-  const [navigatorsLoading, setNavigatorsLoading] = useState(false);
+  const [districtOfficersLoading, setDistrictOfficersLoading] = useState(false);
   const [adminsLoading, setAdminsLoading] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [escalating, setEscalating] = useState(false);
@@ -198,24 +200,50 @@ export default function DashboardPage() {
 
   const fetchNavigators = useCallback(async () => {
     if (!token || currentUser?.role !== "admin") return;
-    setNavigatorsLoading(true);
     try {
       const response = await getNavigators(token);
       setNavigators(response.rows || []);
     } catch (error) {
       console.error("Failed to load navigators:", error);
+    }
+  }, [token, currentUser?.role]);
+
+  const fetchDistrictOfficers = useCallback(async () => {
+    if (!token) return;
+    // Only admins can fetch district officers list (backend permission)
+    // Navigators will see assigned names via complaint.assignedTo object from backend
+    if (currentUser?.role !== "admin") return;
+    setDistrictOfficersLoading(true);
+    try {
+      const response = await getDistrictOfficers(token);
+      setDistrictOfficers(response.rows || []);
+    } catch (error) {
+      console.error("Failed to load district officers:", error);
     } finally {
-      setNavigatorsLoading(false);
+      setDistrictOfficersLoading(false);
     }
   }, [token, currentUser?.role]);
 
   const fetchAdmins = useCallback(async () => {
-    if (!token || currentUser?.role !== "admin") return;
+    if (!token) return;
+    // Allow both admins and district officers to fetch admins (for escalation)
+    if (
+      currentUser?.role !== "admin" &&
+      currentUser?.role !== "district_officer"
+    )
+      return;
     setAdminsLoading(true);
     try {
       const response = await getAdmins(token);
-      // Include all admins (including current user)
+      // Backend filters by district, so district officers only see admins from their district
+      // This is a backend issue - admins should not be district-filtered
+      // See BACKEND_ISSUES.md Issue 1.4
       setAdmins(response.rows || []);
+      if (response.rows?.length === 0) {
+        console.warn(
+          "No admins found. Backend may be filtering by district incorrectly."
+        );
+      }
     } catch (error) {
       console.error("Failed to load admins:", error);
     } finally {
@@ -230,14 +258,16 @@ export default function DashboardPage() {
       refreshStats();
       refreshNavigatorUpdates();
       refreshOverdueComplaints();
-      // Load navigators and admins for displaying names in case details
+      // Load navigators, district officers, and admins for displaying names in case details
       fetchNavigators();
+      fetchDistrictOfficers();
       fetchAdmins();
     }
   }, [
     token,
     currentUser?.role,
     fetchNavigators,
+    fetchDistrictOfficers,
     fetchAdmins,
     refreshComplaints,
     refreshNavigatorUpdates,
@@ -260,8 +290,8 @@ export default function DashboardPage() {
 
   const handleOpenAssignmentModal = () => {
     setAssignmentModal(true);
-    if (navigators.length === 0) {
-      fetchNavigators();
+    if (districtOfficers.length === 0) {
+      fetchDistrictOfficers();
     }
   };
 
@@ -288,10 +318,10 @@ export default function DashboardPage() {
       setLiveComplaints((prev) =>
         prev.map((c) => (c.id === complaint.id ? complaint : c))
       );
-      const navigator = navigators.find((n) => n.id === assignee);
+      const officer = districtOfficers.find((o) => o.id === assignee);
       setLastAction({
         type: "assign",
-        detail: navigator?.fullName || assignee,
+        detail: officer?.fullName || assignee,
       });
       setAssignmentModal(false);
       setAssignee("");
@@ -1138,7 +1168,10 @@ export default function DashboardPage() {
                         <p className="text-gray-700">
                           {activeComplaint.assignedToId === currentUser?.id
                             ? `${currentUser.fullName} (You)`
-                            : navigators.find(
+                            : districtOfficers.find(
+                                (d) => d.id === activeComplaint.assignedToId
+                              )?.fullName ||
+                              navigators.find(
                                 (n) => n.id === activeComplaint.assignedToId
                               )?.fullName ||
                               admins.find(
@@ -1195,6 +1228,14 @@ export default function DashboardPage() {
                             Escalate
                           </button>
                         </div>
+                      )}
+                      {isDistrictOfficer && (
+                        <button
+                          className="w-full rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                          onClick={handleOpenEscalationModal}
+                        >
+                          Escalate to Admin
+                        </button>
                       )}
                       {(isAdmin || isDistrictOfficer) && (
                         <div>
@@ -2195,20 +2236,22 @@ export default function DashboardPage() {
             <div className="space-y-4">
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">
-                  Assign to Navigator
+                  Assign to District Officer
                 </label>
                 <select
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                   value={assignee}
                   onChange={(e) => setAssignee(e.target.value)}
-                  disabled={navigatorsLoading}
+                  disabled={districtOfficersLoading}
                 >
                   <option value="">
-                    {navigatorsLoading ? "Loading..." : "Select navigator"}
+                    {districtOfficersLoading
+                      ? "Loading..."
+                      : "Select district officer"}
                   </option>
-                  {navigators.map((nav) => (
-                    <option key={nav.id} value={nav.id}>
-                      {nav.fullName} ({nav.email})
+                  {districtOfficers.map((officer) => (
+                    <option key={officer.id} value={officer.id}>
+                      {officer.fullName} - {officer.district} ({officer.email})
                     </option>
                   ))}
                 </select>

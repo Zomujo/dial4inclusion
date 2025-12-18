@@ -228,6 +228,18 @@ export async function getNavigators(token: string): Promise<{
   return response.data;
 }
 
+export async function getDistrictOfficers(token: string): Promise<{
+  rows: ApiUser[];
+}> {
+  const response = await apiFetch<{
+    data: { rows: ApiUser[] };
+  }>("/users?role=district_officer", {
+    method: "GET",
+    token,
+  });
+  return response.data;
+}
+
 export async function getAdmins(token: string): Promise<{
   rows: ApiUser[];
 }> {
