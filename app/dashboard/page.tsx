@@ -50,6 +50,7 @@ export default function DashboardPage() {
     otherAssistiveDevice: "",
     otherIssueType: "",
     otherRequest: "",
+    complaintType: "general" as "general" | "detailed",
   });
   const [complaintSubmitting, setComplaintSubmitting] = useState(false);
   const [complaintStatus, setComplaintStatus] = useState<string | null>(null);
@@ -68,6 +69,7 @@ export default function DashboardPage() {
   );
   const [assignmentModal, setAssignmentModal] = useState(false);
   const [escalationModal, setEscalationModal] = useState(false);
+  const [newCaseModal, setNewCaseModal] = useState(false);
   const [assignee, setAssignee] = useState("");
   const [expectedResolutionDate, setExpectedResolutionDate] = useState("");
   const [targetAdmin, setTargetAdmin] = useState("");
@@ -330,18 +332,23 @@ export default function DashboardPage() {
     setComplaintStatus(null);
     setComplaintsError(null);
     try {
+      // Use defaults for general mode, actual values for detailed mode
+      const isDetailed = complaintForm.complaintType === "detailed";
+
       const result = await submitComplaintApi(token, {
-        fullName: complaintForm.fullName,
-        age: parseInt(complaintForm.age) || 0,
+        fullName: isDetailed ? complaintForm.fullName : "Anonymous",
+        age: isDetailed ? parseInt(complaintForm.age) || 18 : 18,
         phoneNumber: complaintForm.phoneNumber,
-        caregiverPhoneNumber: complaintForm.caregiverPhoneNumber,
+        caregiverPhoneNumber: isDetailed
+          ? complaintForm.caregiverPhoneNumber
+          : complaintForm.phoneNumber,
         district: complaintForm.district,
         category: complaintForm.category,
         assistiveDevice: complaintForm.assistiveDevice,
         issueTypes: complaintForm.issueTypes,
         requestType: complaintForm.requestType,
-        gender: complaintForm.gender,
-        language: complaintForm.language,
+        gender: isDetailed ? complaintForm.gender : "other",
+        language: isDetailed ? complaintForm.language : "english",
         description: complaintForm.description,
         otherCategory: complaintForm.otherCategory || undefined,
         otherAssistiveDevice: complaintForm.otherAssistiveDevice || undefined,
@@ -369,10 +376,17 @@ export default function DashboardPage() {
         otherAssistiveDevice: "",
         otherIssueType: "",
         otherRequest: "",
+        complaintType: "general",
       });
       setComplaintStatus(
         `Complaint submitted successfully. Code: ${result.code}`
       );
+
+      // Close modal after 2 seconds
+      setTimeout(() => {
+        setNewCaseModal(false);
+        setComplaintStatus(null);
+      }, 2000);
     } catch (error) {
       setComplaintStatus(null);
       setComplaintsError(
@@ -412,8 +426,32 @@ export default function DashboardPage() {
   }, [liveComplaints, currentUser]);
 
   const filteredComplaints = useMemo(() => {
+    console.log("=== FILTERING START ===");
+    console.log("Current user role:", currentUser?.role);
+    console.log("Current user ID:", currentUser?.id);
+    console.log("Raw complaints from backend:", liveComplaints);
+    console.log("Number of complaints:", liveComplaints.length);
+
+    // For navigators, only show complaints assigned to them
+    let complaints = liveComplaints;
+    if (currentUser?.role === "navigator") {
+      console.log("Navigator filtering:");
+      liveComplaints.forEach((c) => {
+        console.log(
+          `Complaint ${c.id}: assignedToId = ${c.assignedToId}, matches = ${
+            c.assignedToId === currentUser.id
+          }`
+        );
+      });
+      complaints = liveComplaints.filter(
+        (c) => c.assignedToId === currentUser.id
+      );
+      console.log("Filtered complaints:", complaints);
+    }
+
+    // Then apply status filter
     if (statusFilter === "All statuses") {
-      return liveComplaints;
+      return complaints;
     }
 
     const statusMap: Record<string, ApiComplaint["status"]> = {
@@ -425,9 +463,9 @@ export default function DashboardPage() {
     };
 
     const backendStatus = statusMap[statusFilter];
-    if (!backendStatus) return liveComplaints;
-    return liveComplaints.filter((c) => c.status === backendStatus);
-  }, [liveComplaints, statusFilter]);
+    if (!backendStatus) return complaints;
+    return complaints.filter((c) => c.status === backendStatus);
+  }, [liveComplaints, statusFilter, currentUser]);
 
   const activeComplaint =
     filteredComplaints.find((c) => c.id === selectedCase) ??
@@ -982,14 +1020,16 @@ export default function DashboardPage() {
                             : "Assigned Navigator"}
                         </p>
                         <p className="text-gray-700">
-                          {navigators.find(
-                            (n) => n.id === activeComplaint.assignedToId
-                          )?.fullName ||
-                            admins.find(
-                              (a) => a.id === activeComplaint.assignedToId
-                            )?.fullName ||
-                            activeComplaint.assignedTo?.fullName ||
-                            "Unknown"}
+                          {activeComplaint.assignedToId === currentUser?.id
+                            ? currentUser.fullName
+                            : navigators.find(
+                                (n) => n.id === activeComplaint.assignedToId
+                              )?.fullName ||
+                              admins.find(
+                                (a) => a.id === activeComplaint.assignedToId
+                              )?.fullName ||
+                              activeComplaint.assignedTo?.fullName ||
+                              "Unknown"}
                         </p>
                       </div>
                     )}
@@ -1327,7 +1367,10 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-4">
             {isAdmin && (
-              <button className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+              <button
+                onClick={() => setNewCaseModal(true)}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              >
                 + New Case
               </button>
             )}
@@ -1379,6 +1422,546 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <main className="mx-auto max-w-7xl px-6 py-8">{renderTabContent()}</main>
+
+      {/* New Case Modal */}
+      {newCaseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">
+                Submit New Complaint
+              </h2>
+              <button
+                onClick={() => {
+                  setNewCaseModal(false);
+                  setComplaintStatus(null);
+                  setComplaintsError(null);
+                }}
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleComplaintSubmit} className="space-y-4">
+              {/* Complaint Type Selector */}
+              <div className="rounded-xl bg-blue-50 border border-blue-200 p-4">
+                <p className="text-sm font-semibold text-blue-900 mb-3">
+                  Select submission type:
+                </p>
+                <div className="flex gap-3">
+                  <label
+                    className={`flex-1 cursor-pointer rounded-lg border-2 p-3 transition-all ${
+                      complaintForm.complaintType === "general"
+                        ? "border-blue-600 bg-blue-100"
+                        : "border-gray-300 bg-white hover:border-blue-400"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="complaintType"
+                      value="general"
+                      checked={complaintForm.complaintType === "general"}
+                      onChange={(e) =>
+                        setComplaintForm((prev) => ({
+                          ...prev,
+                          complaintType: e.target.value as
+                            | "general"
+                            | "detailed",
+                        }))
+                      }
+                      className="sr-only"
+                    />
+                    <div className="text-center">
+                      <p className="font-semibold text-gray-900">
+                        General Report
+                      </p>
+                      <p className="text-xs text-gray-600 mt-1">
+                        Basic information only
+                      </p>
+                    </div>
+                  </label>
+                  <label
+                    className={`flex-1 cursor-pointer rounded-lg border-2 p-3 transition-all ${
+                      complaintForm.complaintType === "detailed"
+                        ? "border-blue-600 bg-blue-100"
+                        : "border-gray-300 bg-white hover:border-blue-400"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="complaintType"
+                      value="detailed"
+                      checked={complaintForm.complaintType === "detailed"}
+                      onChange={(e) =>
+                        setComplaintForm((prev) => ({
+                          ...prev,
+                          complaintType: e.target.value as
+                            | "general"
+                            | "detailed",
+                        }))
+                      }
+                      className="sr-only"
+                    />
+                    <div className="text-center">
+                      <p className="font-semibold text-gray-900">
+                        Detailed Report
+                      </p>
+                      <p className="text-xs text-gray-600 mt-1">
+                        Full information with personal details
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Contact Information - Always required */}
+              <div className="space-y-3 rounded-lg border border-gray-200 p-4">
+                <h3 className="font-semibold text-gray-900">
+                  Contact Information
+                </h3>
+
+                <label className="block space-y-1">
+                  <span className="text-sm font-medium text-gray-700">
+                    Phone Number *
+                  </span>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="+233551234567"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    value={complaintForm.phoneNumber}
+                    onChange={(e) =>
+                      setComplaintForm((prev) => ({
+                        ...prev,
+                        phoneNumber: e.target.value,
+                      }))
+                    }
+                  />
+                </label>
+              </div>
+
+              {/* Additional Personal Information - Only for detailed */}
+              {complaintForm.complaintType === "detailed" && (
+                <div className="space-y-3 rounded-lg border border-gray-200 p-4">
+                  <h3 className="font-semibold text-gray-900">
+                    Additional Personal Details
+                  </h3>
+
+                  <label className="block space-y-1">
+                    <span className="text-sm font-medium text-gray-700">
+                      Full Name *
+                    </span>
+                    <input
+                      type="text"
+                      required
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                      value={complaintForm.fullName}
+                      onChange={(e) =>
+                        setComplaintForm((prev) => ({
+                          ...prev,
+                          fullName: e.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <label className="block space-y-1">
+                      <span className="text-sm font-medium text-gray-700">
+                        Age *
+                      </span>
+                      <input
+                        type="number"
+                        required
+                        min="1"
+                        max="150"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        value={complaintForm.age}
+                        onChange={(e) =>
+                          setComplaintForm((prev) => ({
+                            ...prev,
+                            age: e.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+
+                    <label className="block space-y-1">
+                      <span className="text-sm font-medium text-gray-700">
+                        Gender *
+                      </span>
+                      <select
+                        required
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        value={complaintForm.gender}
+                        onChange={(e) =>
+                          setComplaintForm((prev) => ({
+                            ...prev,
+                            gender: e.target.value,
+                          }))
+                        }
+                      >
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <label className="block space-y-1">
+                    <span className="text-sm font-medium text-gray-700">
+                      Caregiver Phone *
+                    </span>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="+233551234567"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                      value={complaintForm.caregiverPhoneNumber}
+                      onChange={(e) =>
+                        setComplaintForm((prev) => ({
+                          ...prev,
+                          caregiverPhoneNumber: e.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+
+                  <label className="block space-y-1">
+                    <span className="text-sm font-medium text-gray-700">
+                      Language *
+                    </span>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g., English, Twi, Ga"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                      value={complaintForm.language}
+                      onChange={(e) =>
+                        setComplaintForm((prev) => ({
+                          ...prev,
+                          language: e.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                </div>
+              )}
+
+              {/* Complaint Details */}
+              <div className="space-y-3 rounded-lg border border-gray-200 p-4">
+                <h3 className="font-semibold text-gray-900">
+                  Complaint Details
+                </h3>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="block space-y-1">
+                    <span className="text-sm font-medium text-gray-700">
+                      District *
+                    </span>
+                    <select
+                      required
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                      value={complaintForm.district}
+                      onChange={(e) =>
+                        setComplaintForm((prev) => ({
+                          ...prev,
+                          district: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Choose district</option>
+                      <option value="ablekuma_central">Ablekuma Central</option>
+                      <option value="obuasi_municipal">Obuasi Municipal</option>
+                      <option value="upper_denkyira_east">
+                        Upper Denkyira East
+                      </option>
+                    </select>
+                  </label>
+
+                  <label className="block space-y-1">
+                    <span className="text-sm font-medium text-gray-700">
+                      Category *
+                    </span>
+                    <select
+                      required
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                      value={complaintForm.category}
+                      onChange={(e) =>
+                        setComplaintForm((prev) => ({
+                          ...prev,
+                          category: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Choose category</option>
+                      <option value="disability_fund_delay">
+                        Disability Fund Delay
+                      </option>
+                      <option value="inaccessible_building">
+                        Inaccessible Building
+                      </option>
+                      <option value="discrimination_abuse">
+                        Discrimination / Abuse
+                      </option>
+                      <option value="other_issue">Other Issue</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="block space-y-1">
+                    <span className="text-sm font-medium text-gray-700">
+                      Assistive Device *
+                    </span>
+                    <select
+                      required
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                      value={complaintForm.assistiveDevice}
+                      onChange={(e) =>
+                        setComplaintForm((prev) => ({
+                          ...prev,
+                          assistiveDevice: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="none">None</option>
+                      <option value="white_cane">White Cane</option>
+                      <option value="wheelchair">Wheelchair</option>
+                      <option value="crutches">Crutches</option>
+                      <option value="hearing_aid">Hearing Aid</option>
+                      <option value="braille_device">Braille Device</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </label>
+
+                  <label className="block space-y-1">
+                    <span className="text-sm font-medium text-gray-700">
+                      Request Type *
+                    </span>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g., accessibility_improvement"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                      value={complaintForm.requestType}
+                      onChange={(e) =>
+                        setComplaintForm((prev) => ({
+                          ...prev,
+                          requestType: e.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                </div>
+
+                <label className="block space-y-1">
+                  <span className="text-sm font-medium text-gray-700">
+                    Issue Types * (comma-separated)
+                  </span>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g., access_healthcare, discrimination_stigma"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    value={complaintForm.issueTypes.join(", ")}
+                    onChange={(e) =>
+                      setComplaintForm((prev) => ({
+                        ...prev,
+                        issueTypes: e.target.value
+                          .split(",")
+                          .map((s) => s.trim())
+                          .filter(Boolean),
+                      }))
+                    }
+                  />
+                </label>
+
+                <label className="block space-y-1">
+                  <span className="text-sm font-medium text-gray-700">
+                    Description
+                  </span>
+                  <textarea
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    rows={3}
+                    value={complaintForm.description}
+                    onChange={(e) =>
+                      setComplaintForm((prev) => ({
+                        ...prev,
+                        description: e.target.value,
+                      }))
+                    }
+                  />
+                </label>
+              </div>
+
+              {complaintStatus && (
+                <p className="text-sm text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                  {complaintStatus}
+                </p>
+              )}
+              {complaintsError && (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
+                  {complaintsError}
+                </p>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewCaseModal(false);
+                    setComplaintStatus(null);
+                    setComplaintsError(null);
+                  }}
+                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-blue-300"
+                  disabled={complaintSubmitting}
+                >
+                  {complaintSubmitting ? "Submitting..." : "Submit Complaint"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Assignment Modal */}
+      {assignmentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="mb-4 text-xl font-bold text-gray-900">
+              Assign Complaint
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Assign to Navigator
+                </label>
+                <select
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  value={assignee}
+                  onChange={(e) => setAssignee(e.target.value)}
+                  disabled={navigatorsLoading}
+                >
+                  <option value="">
+                    {navigatorsLoading ? "Loading..." : "Select navigator"}
+                  </option>
+                  {navigators.map((nav) => (
+                    <option key={nav.id} value={nav.id}>
+                      {nav.fullName} ({nav.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Expected Resolution Date (Optional)
+                </label>
+                <input
+                  type="datetime-local"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  value={expectedResolutionDate}
+                  onChange={(e) => setExpectedResolutionDate(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                  onClick={() => {
+                    setAssignmentModal(false);
+                    setAssignee("");
+                    setExpectedResolutionDate("");
+                  }}
+                  disabled={assigning}
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={!assignee || assigning}
+                  className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                  onClick={handleAssign}
+                >
+                  {assigning ? "Assigning..." : "Assign"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Escalation Modal */}
+      {escalationModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="mb-4 text-xl font-bold text-gray-900">
+              Escalate Complaint
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Escalate to Admin
+                </label>
+                <select
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  value={targetAdmin}
+                  onChange={(e) => setTargetAdmin(e.target.value)}
+                  disabled={adminsLoading}
+                >
+                  <option value="">
+                    {adminsLoading ? "Loading..." : "Select admin"}
+                  </option>
+                  {admins.map((admin) => (
+                    <option key={admin.id} value={admin.id}>
+                      {admin.fullName} ({admin.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Escalation Reason
+                </label>
+                <textarea
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  rows={4}
+                  value={escalationReason}
+                  onChange={(e) => setEscalationReason(e.target.value)}
+                  placeholder="Explain why this complaint needs escalation..."
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                  onClick={() => {
+                    setEscalationModal(false);
+                    setTargetAdmin("");
+                    setEscalationReason("");
+                  }}
+                  disabled={escalating}
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={!targetAdmin || !escalationReason || escalating}
+                  className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-300"
+                  onClick={handleEscalate}
+                >
+                  {escalating ? "Escalating..." : "Escalate"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
