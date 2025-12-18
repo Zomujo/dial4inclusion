@@ -43,6 +43,11 @@ export default function LandingPage() {
     fullName: "",
     email: "",
     password: "",
+    role: "navigator" as "district_officer" | "admin" | "navigator",
+    district: "obuasi_municipal" as
+      | "ablekuma_central"
+      | "obuasi_municipal"
+      | "upper_denkyira_east",
   });
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -73,12 +78,16 @@ export default function LandingPage() {
               email: form.email,
               password: form.password,
               fullName: form.fullName,
+              role: form.role,
+              district: form.role !== "admin" ? form.district : undefined,
             });
 
-      saveAuth(payload.token, payload.user);
+      saveAuth(payload.accessToken, payload.user);
       router.push("/dashboard");
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Something went wrong");
+      setAuthError(
+        error instanceof Error ? error.message : "Something went wrong"
+      );
     } finally {
       setAuthLoading(false);
     }
@@ -102,7 +111,9 @@ export default function LandingPage() {
             </div>
             <div>
               <p className="text-sm font-bold text-gray-900">Dial4Inclusion</p>
-              <p className="text-xs text-gray-600">Inclusive Service Coordination</p>
+              <p className="text-xs text-gray-600">
+                Inclusive Service Coordination
+              </p>
             </div>
           </div>
         </div>
@@ -124,8 +135,9 @@ export default function LandingPage() {
                 with a navigator-first dashboard.
               </h2>
               <p className="text-xl leading-relaxed text-gray-600">
-                Dial4Inclusion blends USSD reporting, navigator workflows, and real-time
-                intelligence so assemblies can protect the rights of persons with disabilities.
+                Dial4Inclusion blends USSD reporting, navigator workflows, and
+                real-time intelligence so assemblies can protect the rights of
+                persons with disabilities.
               </p>
             </div>
 
@@ -133,9 +145,13 @@ export default function LandingPage() {
               {highlights.map((item, index) => (
                 <li key={item} className="group flex items-start gap-4">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 shadow-md transition-transform group-hover:scale-110">
-                    <span className="text-sm font-bold text-white">{index + 1}</span>
+                    <span className="text-sm font-bold text-white">
+                      {index + 1}
+                    </span>
                   </div>
-                  <p className="pt-1 text-lg font-medium text-gray-800">{item}</p>
+                  <p className="pt-1 text-lg font-medium text-gray-800">
+                    {item}
+                  </p>
                 </li>
               ))}
             </ul>
@@ -146,7 +162,9 @@ export default function LandingPage() {
                   key={stat.label}
                   className="group rounded-2xl border border-white/50 bg-white/60 p-6 shadow-lg backdrop-blur-sm transition-all hover:scale-105 hover:shadow-xl"
                 >
-                  <p className="text-4xl font-extrabold text-gray-900">{stat.value}</p>
+                  <p className="text-4xl font-extrabold text-gray-900">
+                    {stat.value}
+                  </p>
                   <p className="mt-2 text-sm font-medium uppercase tracking-wide text-gray-600">
                     {stat.label}
                   </p>
@@ -189,21 +207,77 @@ export default function LandingPage() {
 
             <form className="space-y-5" onSubmit={handleSubmit}>
               {authMode === "register" && (
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Full name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={form.fullName}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, fullName: event.target.value }))
-                    }
-                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    placeholder="John Doe"
-                  />
-                </div>
+                <>
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      Full name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={form.fullName}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          fullName: event.target.value,
+                        }))
+                      }
+                      className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      placeholder="John Doe"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      Role
+                    </label>
+                    <select
+                      required
+                      value={form.role}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          role: event.target.value as typeof form.role,
+                        }))
+                      }
+                      className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    >
+                      <option value="navigator">Navigator</option>
+                      <option value="district_officer">District Officer</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+
+                  {form.role !== "admin" && (
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-gray-700">
+                        District
+                      </label>
+                      <select
+                        required
+                        value={form.district}
+                        onChange={(event) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            district: event.target
+                              .value as typeof form.district,
+                          }))
+                        }
+                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      >
+                        <option value="ablekuma_central">
+                          Ablekuma Central
+                        </option>
+                        <option value="obuasi_municipal">
+                          Obuasi Municipal
+                        </option>
+                        <option value="upper_denkyira_east">
+                          Upper Denkyira East
+                        </option>
+                      </select>
+                    </div>
+                  )}
+                </>
               )}
 
               <div>
@@ -232,7 +306,10 @@ export default function LandingPage() {
                   required
                   value={form.password}
                   onChange={(event) =>
-                    setForm((prev) => ({ ...prev, password: event.target.value }))
+                    setForm((prev) => ({
+                      ...prev,
+                      password: event.target.value,
+                    }))
                   }
                   className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   placeholder="••••••••"
@@ -241,7 +318,9 @@ export default function LandingPage() {
 
               {authError && (
                 <div className="rounded-xl bg-red-50 border border-red-200 p-3">
-                  <p className="text-sm font-medium text-red-800">{authError}</p>
+                  <p className="text-sm font-medium text-red-800">
+                    {authError}
+                  </p>
                 </div>
               )}
 
@@ -253,15 +332,13 @@ export default function LandingPage() {
                 {authLoading
                   ? "Connecting…"
                   : authMode === "login"
-                    ? "Sign in"
-                    : "Create account"}
+                  ? "Sign in"
+                  : "Create account"}
               </button>
             </form>
 
             <div className="mt-8 space-y-4 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100/50 p-6 border border-gray-200/50">
-              <p className="text-sm font-bold text-gray-900">
-                How it works
-              </p>
+              <p className="text-sm font-bold text-gray-900">How it works</p>
               <ul className="space-y-4 text-sm text-gray-700">
                 {quickSteps.map((step, index) => (
                   <li key={step.title} className="flex gap-3">
@@ -269,7 +346,9 @@ export default function LandingPage() {
                       {index + 1}
                     </span>
                     <div>
-                      <p className="font-semibold text-gray-900">{step.title}</p>
+                      <p className="font-semibold text-gray-900">
+                        {step.title}
+                      </p>
                       <p className="mt-0.5 leading-relaxed">{step.copy}</p>
                     </div>
                   </li>
@@ -282,4 +361,3 @@ export default function LandingPage() {
     </div>
   );
 }
-
