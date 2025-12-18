@@ -63,16 +63,20 @@ export interface ApiUser {
 export interface ApiComplaint {
   id: string;
   code: string;
+  // PWD Personal Information
   fullName?: string;
   age?: number;
-  phoneNumber: string;
-  caregiverPhoneNumber?: string;
-  category:
-    | "disability_fund_delay"
-    | "inaccessible_building"
-    | "discrimination_abuse"
-    | "other_issue";
-  otherCategory?: string | null;
+  gender?: "male" | "female" | "other" | string;
+  primaryDisabilityCategory?:
+    | "visual_impairment"
+    | "hearing_impairment"
+    | "physical_disability"
+    | "intellectual_disability"
+    | "psychosocial_disability"
+    | "speech_impairment"
+    | "multiple_disabilities"
+    | "other";
+  otherDisability?: string | null;
   assistiveDevice?:
     | "none"
     | "white_cane"
@@ -82,14 +86,26 @@ export interface ApiComplaint {
     | "braille_device"
     | "other";
   otherAssistiveDevice?: string | null;
-  issueTypes?: string[];
+  // Contact Information
+  phoneNumber: string;
+  caregiverPhoneNumber?: string;
+  language?: string;
+  // Issue Classification
+  category:
+    | "disability_fund_delay"
+    | "inaccessible_building"
+    | "discrimination_abuse"
+    | "other_issue";
+  otherCategory?: string | null;
+  issueTypes?: string[]; // For detailed complaints: multiple issue types
   otherIssueType?: string | null;
+  // Request Information
   requestType?: string;
+  requestDescription?: string;
   otherRequest?: string | null;
+  // Location & Details
   district: "ablekuma_central" | "obuasi_municipal" | "upper_denkyira_east";
   description?: string;
-  gender?: "male" | "female" | "other" | string;
-  language?: string;
   status: "pending" | "in_progress" | "resolved" | "rejected" | "escalated";
   assignedToId?: string | null;
   assignedTo?: ApiUser;
@@ -165,22 +181,30 @@ export async function getComplaints(token: string): Promise<{
 export async function submitComplaint(
   token: string,
   input: {
+    // PWD Personal Information
     fullName: string;
     age: number;
-    phoneNumber: string;
-    caregiverPhoneNumber: string;
-    district: string;
-    category: string;
-    assistiveDevice: string;
-    issueTypes: string[];
-    requestType: string;
     gender: string;
-    language: string;
-    description?: string;
-    otherCategory?: string;
+    primaryDisabilityCategory?: string;
+    otherDisability?: string;
+    assistiveDevice: string;
     otherAssistiveDevice?: string;
+    // Contact Information
+    phoneNumber: string;
+    caregiverPhoneNumber?: string;
+    language: string;
+    // Issue Classification
+    category: string;
+    otherCategory?: string;
+    issueTypes?: string[];
     otherIssueType?: string;
+    // Request Information
+    requestType?: string;
+    requestDescription?: string;
     otherRequest?: string;
+    // Location & Details
+    district: string;
+    description?: string;
   }
 ): Promise<{ code: string }> {
   const response = await apiFetch<{ data: string }>("/complaints", {

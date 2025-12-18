@@ -1,6 +1,13 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
   assignComplaint as assignComplaintApi,
@@ -40,16 +47,19 @@ export default function DashboardPage() {
     caregiverPhoneNumber: "",
     category: "",
     district: "",
+    primaryDisabilityCategory: "",
+    otherDisability: "",
     assistiveDevice: "none",
+    otherAssistiveDevice: "",
     issueTypes: [] as string[],
+    otherIssueType: "",
     requestType: "",
+    requestDescription: "",
+    otherRequest: "",
     gender: "male",
     language: "english",
     description: "",
     otherCategory: "",
-    otherAssistiveDevice: "",
-    otherIssueType: "",
-    otherRequest: "",
     complaintType: "general" as "general" | "detailed",
   });
   const [complaintSubmitting, setComplaintSubmitting] = useState(false);
@@ -84,7 +94,6 @@ export default function DashboardPage() {
     type: "assign" | "escalate";
     detail: string;
   } | null>(null);
-  const [webFlowStep, setWebFlowStep] = useState(0);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const [monitoringStats, setMonitoringStats] = useState<{
@@ -141,7 +150,7 @@ export default function DashboardPage() {
     setCheckingAuth(false);
   }, [router]);
 
-  const refreshComplaints = async () => {
+  const refreshComplaints = useCallback(async () => {
     if (!token) return;
     setComplaintsLoading(true);
     setComplaintsError(null);
@@ -155,7 +164,64 @@ export default function DashboardPage() {
     } finally {
       setComplaintsLoading(false);
     }
-  };
+  }, [token]);
+
+  const refreshStats = useCallback(async () => {
+    if (!token) return;
+    try {
+      const stats = await getComplaintStats(token);
+      setMonitoringStats(stats);
+    } catch (error) {
+      console.error("Failed to load stats:", error);
+    }
+  }, [token]);
+
+  const refreshNavigatorUpdates = useCallback(async () => {
+    if (!token) return;
+    try {
+      const updates = await getNavigatorUpdates(token, 10);
+      setNavigatorUpdates(updates);
+    } catch (error) {
+      console.error("Failed to load navigator updates:", error);
+    }
+  }, [token]);
+
+  const refreshOverdueComplaints = useCallback(async () => {
+    if (!token) return;
+    try {
+      const complaints = await getOverdueComplaints(token);
+      setOverdueComplaints(complaints);
+    } catch (error) {
+      console.error("Failed to load overdue complaints:", error);
+    }
+  }, [token]);
+
+  const fetchNavigators = useCallback(async () => {
+    if (!token || currentUser?.role !== "admin") return;
+    setNavigatorsLoading(true);
+    try {
+      const response = await getNavigators(token);
+      setNavigators(response.rows || []);
+    } catch (error) {
+      console.error("Failed to load navigators:", error);
+    } finally {
+      setNavigatorsLoading(false);
+    }
+  }, [token, currentUser?.role]);
+
+  const fetchAdmins = useCallback(async () => {
+    if (!token || currentUser?.role !== "admin") return;
+    setAdminsLoading(true);
+    try {
+      const response = await getAdmins(token);
+      // Include all admins (including current user)
+      setAdmins(response.rows || []);
+    } catch (error) {
+      console.error("Failed to load admins:", error);
+    } finally {
+      setAdminsLoading(false);
+    }
+  }, [token, currentUser?.role]);
 
   useEffect(() => {
     if (!token) return;
@@ -168,57 +234,29 @@ export default function DashboardPage() {
       fetchNavigators();
       fetchAdmins();
     }
-  }, [token, currentUser?.role]);
+  }, [
+    token,
+    currentUser?.role,
+    fetchNavigators,
+    fetchAdmins,
+    refreshComplaints,
+    refreshNavigatorUpdates,
+    refreshOverdueComplaints,
+    refreshStats,
+  ]);
 
   useEffect(() => {
     if (activeTab === "monitoring" && token && currentUser?.role === "admin") {
       refreshNavigatorUpdates();
       refreshOverdueComplaints();
     }
-  }, [activeTab, token, currentUser?.role]);
-
-  const refreshStats = async () => {
-    if (!token) return;
-    try {
-      const stats = await getComplaintStats(token);
-      setMonitoringStats(stats);
-    } catch (error) {
-      console.error("Failed to load stats:", error);
-    }
-  };
-
-  const refreshNavigatorUpdates = async () => {
-    if (!token) return;
-    try {
-      const updates = await getNavigatorUpdates(token, 10);
-      setNavigatorUpdates(updates);
-    } catch (error) {
-      console.error("Failed to load navigator updates:", error);
-    }
-  };
-
-  const refreshOverdueComplaints = async () => {
-    if (!token) return;
-    try {
-      const complaints = await getOverdueComplaints(token);
-      setOverdueComplaints(complaints);
-    } catch (error) {
-      console.error("Failed to load overdue complaints:", error);
-    }
-  };
-
-  const fetchNavigators = async () => {
-    if (!token || currentUser?.role !== "admin") return;
-    setNavigatorsLoading(true);
-    try {
-      const response = await getNavigators(token);
-      setNavigators(response.rows || []);
-    } catch (error) {
-      console.error("Failed to load navigators:", error);
-    } finally {
-      setNavigatorsLoading(false);
-    }
-  };
+  }, [
+    activeTab,
+    token,
+    currentUser?.role,
+    refreshNavigatorUpdates,
+    refreshOverdueComplaints,
+  ]);
 
   const handleOpenAssignmentModal = () => {
     setAssignmentModal(true);
@@ -231,20 +269,6 @@ export default function DashboardPage() {
     setEscalationModal(true);
     if (admins.length === 0) {
       fetchAdmins();
-    }
-  };
-
-  const fetchAdmins = async () => {
-    if (!token || currentUser?.role !== "admin") return;
-    setAdminsLoading(true);
-    try {
-      const response = await getAdmins(token);
-      // Include all admins (including current user)
-      setAdmins(response.rows || []);
-    } catch (error) {
-      console.error("Failed to load admins:", error);
-    } finally {
-      setAdminsLoading(false);
     }
   };
 
@@ -336,24 +360,34 @@ export default function DashboardPage() {
       const isDetailed = complaintForm.complaintType === "detailed";
 
       const result = await submitComplaintApi(token, {
+        // PWD Personal Information
         fullName: isDetailed ? complaintForm.fullName : "Anonymous",
         age: isDetailed ? parseInt(complaintForm.age) || 18 : 18,
+        gender: isDetailed ? complaintForm.gender : "other",
+        primaryDisabilityCategory: isDetailed
+          ? complaintForm.primaryDisabilityCategory
+          : undefined,
+        otherDisability: complaintForm.otherDisability || undefined,
+        assistiveDevice: isDetailed ? complaintForm.assistiveDevice : "none",
+        otherAssistiveDevice: complaintForm.otherAssistiveDevice || undefined,
+        // Contact Information
         phoneNumber: complaintForm.phoneNumber,
         caregiverPhoneNumber: isDetailed
-          ? complaintForm.caregiverPhoneNumber
-          : complaintForm.phoneNumber,
-        district: complaintForm.district,
-        category: complaintForm.category,
-        assistiveDevice: complaintForm.assistiveDevice,
-        issueTypes: complaintForm.issueTypes,
-        requestType: complaintForm.requestType,
-        gender: isDetailed ? complaintForm.gender : "other",
+          ? complaintForm.caregiverPhoneNumber || undefined
+          : undefined,
         language: isDetailed ? complaintForm.language : "english",
-        description: complaintForm.description,
+        // Issue Classification
+        category: complaintForm.category,
         otherCategory: complaintForm.otherCategory || undefined,
-        otherAssistiveDevice: complaintForm.otherAssistiveDevice || undefined,
+        issueTypes: isDetailed ? complaintForm.issueTypes : undefined,
         otherIssueType: complaintForm.otherIssueType || undefined,
+        // Request Information
+        requestType: isDetailed ? complaintForm.requestType : undefined,
+        requestDescription: complaintForm.requestDescription || undefined,
         otherRequest: complaintForm.otherRequest || undefined,
+        // Location & Details
+        district: complaintForm.district,
+        description: complaintForm.description,
       });
 
       // Refresh complaints list after submission
@@ -366,16 +400,19 @@ export default function DashboardPage() {
         caregiverPhoneNumber: "",
         category: "",
         district: "",
+        primaryDisabilityCategory: "",
+        otherDisability: "",
         assistiveDevice: "none",
+        otherAssistiveDevice: "",
         issueTypes: [],
+        otherIssueType: "",
         requestType: "",
+        requestDescription: "",
+        otherRequest: "",
         gender: "male",
         language: "english",
         description: "",
         otherCategory: "",
-        otherAssistiveDevice: "",
-        otherIssueType: "",
-        otherRequest: "",
         complaintType: "general",
       });
       setComplaintStatus(
@@ -426,28 +463,21 @@ export default function DashboardPage() {
   }, [liveComplaints, currentUser]);
 
   const filteredComplaints = useMemo(() => {
-    console.log("=== FILTERING START ===");
-    console.log("Current user role:", currentUser?.role);
-    console.log("Current user ID:", currentUser?.id);
-    console.log("Raw complaints from backend:", liveComplaints);
-    console.log("Number of complaints:", liveComplaints.length);
+    // For navigators: backend already filters complaints by district
+    // TODO: Once backend adds createdById tracking, filter to show only complaints created by this navigator
+    // For now, navigators see all complaints from their district (backend filtering)
 
-    // For navigators, only show complaints assigned to them
-    let complaints = liveComplaints;
-    if (currentUser?.role === "navigator") {
-      console.log("Navigator filtering:");
-      liveComplaints.forEach((c) => {
-        console.log(
-          `Complaint ${c.id}: assignedToId = ${c.assignedToId}, matches = ${
-            c.assignedToId === currentUser.id
-          }`
-        );
-      });
-      complaints = liveComplaints.filter(
-        (c) => c.assignedToId === currentUser.id
-      );
-      console.log("Filtered complaints:", complaints);
-    }
+    // For district officers: show only complaints assigned to them
+    // TODO: Uncomment below once backend properly assigns complaints to district officers
+    // Currently showing ALL cases for district officers until backend is ready
+    const complaints = liveComplaints;
+    // if (currentUser?.role === "district_officer") {
+    //   complaints = liveComplaints.filter(
+    //     (c) =>
+    //       c.assignedToId === currentUser.id &&
+    //       c.district === currentUser.district
+    //   );
+    // }
 
     // Then apply status filter
     if (statusFilter === "All statuses") {
@@ -465,7 +495,7 @@ export default function DashboardPage() {
     const backendStatus = statusMap[statusFilter];
     if (!backendStatus) return complaints;
     return complaints.filter((c) => c.status === backendStatus);
-  }, [liveComplaints, statusFilter, currentUser]);
+  }, [liveComplaints, statusFilter]);
 
   const activeComplaint =
     filteredComplaints.find((c) => c.id === selectedCase) ??
@@ -512,6 +542,7 @@ export default function DashboardPage() {
 
   const isAdmin = currentUser.role === "admin";
   const isNavigator = currentUser.role === "navigator";
+  const isDistrictOfficer = currentUser.role === "district_officer";
 
   const mainMenuHint =
     activePath === "report"
@@ -691,48 +722,6 @@ export default function DashboardPage() {
     </div>
   );
 
-  const renderWebFlowReference = () => {
-    const steps = [
-      {
-        title: "Select district",
-        details: "Ablekuma Central • Obuasi Municipal • Upper Denkyira East",
-      },
-      {
-        title: "Choose issue",
-        details:
-          "Disability Fund Delay, Inaccessible Building, Discrimination / Abuse, Other",
-      },
-      {
-        title: "Describe and confirm",
-        details:
-          "Share short description, add category, and submit for navigator follow-up",
-      },
-    ];
-
-    return (
-      <div className="mt-5 space-y-3">
-        {steps.map((step, index) => (
-          <div
-            key={step.title}
-            className="rounded-xl border border-white bg-white p-3 shadow-sm"
-          >
-            <div className="flex items-center gap-3">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-700">
-                {index + 1}
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">
-                  {step.title}
-                </p>
-                <p className="text-xs text-gray-600">{step.details}</p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
   const renderTabContent = () => {
     switch (activeTab) {
       case "cases":
@@ -841,12 +830,18 @@ export default function DashboardPage() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">
-                  {isAdmin ? "Case Management" : "My Assigned Cases"}
+                  {isAdmin
+                    ? "Case Management"
+                    : isDistrictOfficer
+                    ? "Assigned Cases"
+                    : "My Cases"}
                 </h2>
                 <p className="text-gray-600">
                   {isAdmin
                     ? "Monitor and triage incoming PWD complaints"
-                    : "View and manage your assigned cases"}
+                    : isDistrictOfficer
+                    ? "Cases assigned to you for resolution"
+                    : "Cases you've reported from the field"}
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -882,6 +877,9 @@ export default function DashboardPage() {
                           ID
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                          District
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                           Category
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
@@ -900,6 +898,12 @@ export default function DashboardPage() {
                         >
                           <td className="px-6 py-4 text-sm font-medium text-gray-900">
                             {c.id.slice(0, 8)}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-700">
+                            {c.district
+                              ?.replace(/_/g, " ")
+                              .replace(/\b\w/g, (l) => l.toUpperCase()) ||
+                              "N/A"}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-700">
                             {c.category
@@ -974,15 +978,26 @@ export default function DashboardPage() {
                           .replace(/\b\w/g, (l) => l.toUpperCase()) || "N/A"}
                       </p>
                     </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-gray-500">
-                        Description
-                      </p>
-                      <p className="text-gray-700 whitespace-pre-line">
-                        {activeComplaint.description ||
-                          "No description provided"}
-                      </p>
-                    </div>
+
+                    {/* PWD Personal Information */}
+                    {activeComplaint.fullName && (
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-gray-500">
+                          Full Name
+                        </p>
+                        <p className="text-gray-700">
+                          {activeComplaint.fullName}
+                        </p>
+                      </div>
+                    )}
+                    {activeComplaint.age && (
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-gray-500">
+                          Age
+                        </p>
+                        <p className="text-gray-700">{activeComplaint.age}</p>
+                      </div>
+                    )}
                     {activeComplaint.gender && (
                       <div>
                         <p className="text-xs uppercase tracking-wide text-gray-500">
@@ -991,6 +1006,44 @@ export default function DashboardPage() {
                         <p className="text-gray-700">
                           {activeComplaint.gender.charAt(0).toUpperCase() +
                             activeComplaint.gender.slice(1)}
+                        </p>
+                      </div>
+                    )}
+                    {activeComplaint.primaryDisabilityCategory && (
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-gray-500">
+                          Disability Category
+                        </p>
+                        <p className="text-gray-700">
+                          {activeComplaint.primaryDisabilityCategory
+                            ?.replace(/_/g, " ")
+                            .replace(/\b\w/g, (l) => l.toUpperCase())}
+                          {activeComplaint.otherDisability &&
+                            `: ${activeComplaint.otherDisability}`}
+                        </p>
+                      </div>
+                    )}
+                    {activeComplaint.assistiveDevice && (
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-gray-500">
+                          Assistive Device
+                        </p>
+                        <p className="text-gray-700">
+                          {activeComplaint.assistiveDevice
+                            ?.replace(/_/g, " ")
+                            .replace(/\b\w/g, (l) => l.toUpperCase())}
+                          {activeComplaint.otherAssistiveDevice &&
+                            `: ${activeComplaint.otherAssistiveDevice}`}
+                        </p>
+                      </div>
+                    )}
+                    {activeComplaint.caregiverPhoneNumber && (
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-gray-500">
+                          Caregiver Phone
+                        </p>
+                        <p className="text-gray-700">
+                          {activeComplaint.caregiverPhoneNumber}
                         </p>
                       </div>
                     )}
@@ -1004,6 +1057,69 @@ export default function DashboardPage() {
                         </p>
                       </div>
                     )}
+
+                    {/* Issue Types */}
+                    {activeComplaint.issueTypes &&
+                      activeComplaint.issueTypes.length > 0 && (
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-gray-500">
+                            Issue Types
+                          </p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {activeComplaint.issueTypes.map((type) => (
+                              <span
+                                key={type}
+                                className="inline-block rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-800"
+                              >
+                                {type
+                                  .replace(/_/g, " ")
+                                  .replace(/\b\w/g, (l) => l.toUpperCase())}
+                              </span>
+                            ))}
+                          </div>
+                          {activeComplaint.otherIssueType && (
+                            <p className="text-sm text-gray-600 mt-1">
+                              Other: {activeComplaint.otherIssueType}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                    {/* Request Information */}
+                    {activeComplaint.requestType && (
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-gray-500">
+                          Request Type
+                        </p>
+                        <p className="text-gray-700">
+                          {activeComplaint.requestType
+                            ?.replace(/_/g, " ")
+                            .replace(/\b\w/g, (l) => l.toUpperCase())}
+                          {activeComplaint.otherRequest &&
+                            `: ${activeComplaint.otherRequest}`}
+                        </p>
+                      </div>
+                    )}
+                    {activeComplaint.requestDescription && (
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-gray-500">
+                          Request Details
+                        </p>
+                        <p className="text-gray-700 whitespace-pre-line">
+                          {activeComplaint.requestDescription}
+                        </p>
+                      </div>
+                    )}
+
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-gray-500">
+                        Description
+                      </p>
+                      <p className="text-gray-700 whitespace-pre-line">
+                        {activeComplaint.description ||
+                          "No description provided"}
+                      </p>
+                    </div>
                     <div>
                       <p className="text-xs uppercase tracking-wide text-gray-500">
                         Created
@@ -1017,11 +1133,11 @@ export default function DashboardPage() {
                         <p className="text-xs uppercase tracking-wide text-gray-500">
                           {activeComplaint.status === "escalated"
                             ? "Escalated To"
-                            : "Assigned Navigator"}
+                            : "Assigned To"}
                         </p>
                         <p className="text-gray-700">
                           {activeComplaint.assignedToId === currentUser?.id
-                            ? currentUser.fullName
+                            ? `${currentUser.fullName} (You)`
                             : navigators.find(
                                 (n) => n.id === activeComplaint.assignedToId
                               )?.fullName ||
@@ -1029,7 +1145,7 @@ export default function DashboardPage() {
                                 (a) => a.id === activeComplaint.assignedToId
                               )?.fullName ||
                               activeComplaint.assignedTo?.fullName ||
-                              "Unknown"}
+                              "Unassigned"}
                         </p>
                       </div>
                     )}
@@ -1080,7 +1196,7 @@ export default function DashboardPage() {
                           </button>
                         </div>
                       )}
-                      {(isAdmin || isNavigator) && (
+                      {(isAdmin || isDistrictOfficer) && (
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Update Status
@@ -1366,7 +1482,7 @@ export default function DashboardPage() {
             )}
           </div>
           <div className="flex items-center gap-4">
-            {isAdmin && (
+            {(isAdmin || isNavigator) && !isDistrictOfficer && (
               <button
                 onClick={() => setNewCaseModal(true)}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
@@ -1611,7 +1727,69 @@ export default function DashboardPage() {
 
                   <label className="block space-y-1">
                     <span className="text-sm font-medium text-gray-700">
-                      Caregiver Phone *
+                      Primary Disability Category *
+                    </span>
+                    <select
+                      required
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                      value={complaintForm.primaryDisabilityCategory}
+                      onChange={(e) =>
+                        setComplaintForm((prev) => ({
+                          ...prev,
+                          primaryDisabilityCategory: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Choose category</option>
+                      <option value="visual_impairment">
+                        Visual Impairment
+                      </option>
+                      <option value="hearing_impairment">
+                        Hearing Impairment
+                      </option>
+                      <option value="physical_disability">
+                        Physical Disability
+                      </option>
+                      <option value="intellectual_disability">
+                        Intellectual Disability
+                      </option>
+                      <option value="psychosocial_disability">
+                        Psychosocial Disability
+                      </option>
+                      <option value="speech_impairment">
+                        Speech Impairment
+                      </option>
+                      <option value="multiple_disabilities">
+                        Multiple Disabilities
+                      </option>
+                      <option value="other">Other</option>
+                    </select>
+                  </label>
+
+                  {complaintForm.primaryDisabilityCategory === "other" && (
+                    <label className="block space-y-1">
+                      <span className="text-sm font-medium text-gray-700">
+                        Specify Other Disability *
+                      </span>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Please specify the disability"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        value={complaintForm.otherDisability}
+                        onChange={(e) =>
+                          setComplaintForm((prev) => ({
+                            ...prev,
+                            otherDisability: e.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                  )}
+
+                  <label className="block space-y-1">
+                    <span className="text-sm font-medium text-gray-700">
+                      Caregiver Phone (Optional)
                     </span>
                     <input
                       type="tel"
@@ -1710,73 +1888,248 @@ export default function DashboardPage() {
                   </label>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-2">
-                  <label className="block space-y-1">
-                    <span className="text-sm font-medium text-gray-700">
-                      Assistive Device *
-                    </span>
-                    <select
-                      required
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                      value={complaintForm.assistiveDevice}
-                      onChange={(e) =>
-                        setComplaintForm((prev) => ({
-                          ...prev,
-                          assistiveDevice: e.target.value,
-                        }))
-                      }
-                    >
-                      <option value="none">None</option>
-                      <option value="white_cane">White Cane</option>
-                      <option value="wheelchair">Wheelchair</option>
-                      <option value="crutches">Crutches</option>
-                      <option value="hearing_aid">Hearing Aid</option>
-                      <option value="braille_device">Braille Device</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </label>
+                {complaintForm.complaintType === "detailed" && (
+                  <>
+                    <label className="block space-y-1">
+                      <span className="text-sm font-medium text-gray-700">
+                        Assistive Device Used *
+                      </span>
+                      <select
+                        required
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        value={complaintForm.assistiveDevice}
+                        onChange={(e) =>
+                          setComplaintForm((prev) => ({
+                            ...prev,
+                            assistiveDevice: e.target.value,
+                          }))
+                        }
+                      >
+                        <option value="">Choose device</option>
+                        <option value="none">None</option>
+                        <option value="white_cane">White Cane</option>
+                        <option value="wheelchair">Wheelchair</option>
+                        <option value="crutches">Crutches</option>
+                        <option value="hearing_aid">Hearing Aid</option>
+                        <option value="braille_device">Braille Device</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </label>
 
-                  <label className="block space-y-1">
-                    <span className="text-sm font-medium text-gray-700">
-                      Request Type *
-                    </span>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g., accessibility_improvement"
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                      value={complaintForm.requestType}
-                      onChange={(e) =>
-                        setComplaintForm((prev) => ({
-                          ...prev,
-                          requestType: e.target.value,
-                        }))
-                      }
-                    />
-                  </label>
-                </div>
+                    {complaintForm.assistiveDevice === "other" && (
+                      <label className="block space-y-1">
+                        <span className="text-sm font-medium text-gray-700">
+                          Specify Other Device *
+                        </span>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Please specify the assistive device"
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                          value={complaintForm.otherAssistiveDevice}
+                          onChange={(e) =>
+                            setComplaintForm((prev) => ({
+                              ...prev,
+                              otherAssistiveDevice: e.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+                    )}
 
-                <label className="block space-y-1">
-                  <span className="text-sm font-medium text-gray-700">
-                    Issue Types * (comma-separated)
-                  </span>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g., access_healthcare, discrimination_stigma"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                    value={complaintForm.issueTypes.join(", ")}
-                    onChange={(e) =>
-                      setComplaintForm((prev) => ({
-                        ...prev,
-                        issueTypes: e.target.value
-                          .split(",")
-                          .map((s) => s.trim())
-                          .filter(Boolean),
-                      }))
-                    }
-                  />
-                </label>
+                    <label className="block space-y-1">
+                      <span className="text-sm font-medium text-gray-700">
+                        Request Type *
+                      </span>
+                      <select
+                        required
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        value={complaintForm.requestType}
+                        onChange={(e) =>
+                          setComplaintForm((prev) => ({
+                            ...prev,
+                            requestType: e.target.value,
+                          }))
+                        }
+                      >
+                        <option value="">Choose request type</option>
+                        <option value="assistive_device_support">
+                          Assistive Device Support
+                        </option>
+                        <option value="health_rehabilitation">
+                          Health / Rehabilitation Support
+                        </option>
+                        <option value="mental_health_counselling">
+                          Mental Health Counselling
+                        </option>
+                        <option value="financial_assistance">
+                          Financial Assistance
+                        </option>
+                        <option value="legal_social_welfare">
+                          Legal / Social Welfare Support
+                        </option>
+                        <option value="education_training">
+                          Education / Training
+                        </option>
+                        <option value="accessibility_improvement">
+                          Accessibility Improvement
+                        </option>
+                        <option value="employment_skills">
+                          Employment / Skills Support
+                        </option>
+                        <option value="community_inclusion">
+                          Community Inclusion
+                        </option>
+                        <option value="documentation_help">
+                          Documentation Help (NHIS, Ghana Card)
+                        </option>
+                        <option value="transportation_assistance">
+                          Transportation Assistance
+                        </option>
+                        <option value="other">Other</option>
+                      </select>
+                    </label>
+
+                    {complaintForm.requestType === "other" && (
+                      <label className="block space-y-1">
+                        <span className="text-sm font-medium text-gray-700">
+                          Specify Other Request *
+                        </span>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Please specify the request type"
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                          value={complaintForm.otherRequest}
+                          onChange={(e) =>
+                            setComplaintForm((prev) => ({
+                              ...prev,
+                              otherRequest: e.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+                    )}
+
+                    <label className="block space-y-1">
+                      <span className="text-sm font-medium text-gray-700">
+                        What exactly is the person requesting? (Optional)
+                      </span>
+                      <textarea
+                        rows={3}
+                        placeholder="Provide specific details about what the PWD is requesting..."
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        value={complaintForm.requestDescription}
+                        onChange={(e) =>
+                          setComplaintForm((prev) => ({
+                            ...prev,
+                            requestDescription: e.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                  </>
+                )}
+
+                {complaintForm.complaintType === "detailed" && (
+                  <div className="space-y-2">
+                    <span className="text-sm font-medium text-gray-700">
+                      Issue Types * (select all that apply)
+                    </span>
+                    <div className="grid gap-2 md:grid-cols-2">
+                      {[
+                        {
+                          value: "access_to_healthcare",
+                          label: "Access to Healthcare",
+                        },
+                        {
+                          value: "access_to_mental_health",
+                          label: "Access to Mental Health Support",
+                        },
+                        {
+                          value: "discrimination_stigma",
+                          label: "Discrimination or Stigma",
+                        },
+                        {
+                          value: "physical_accessibility",
+                          label: "Physical Accessibility Challenge",
+                        },
+                        { value: "education_issue", label: "Education Issue" },
+                        {
+                          value: "employment_livelihood",
+                          label: "Employment / Livelihood",
+                        },
+                        {
+                          value: "social_protection",
+                          label: "Social Protection (LEAP, Disability Fund)",
+                        },
+                        {
+                          value: "assistive_device_need",
+                          label: "Assistive Device Need",
+                        },
+                        {
+                          value: "gbv_safety_concern",
+                          label: "Gender-Based Violence / Safety",
+                        },
+                        {
+                          value: "legal_human_rights",
+                          label: "Legal / Human Rights Issue",
+                        },
+                        {
+                          value: "community_participation",
+                          label: "Community Participation Barrier",
+                        },
+                        {
+                          value: "lack_of_documentation",
+                          label: "Lack of Documentation",
+                        },
+                        { value: "other", label: "Other" },
+                      ].map((issue) => (
+                        <label
+                          key={issue.value}
+                          className="flex items-center gap-2"
+                        >
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            checked={complaintForm.issueTypes.includes(
+                              issue.value
+                            )}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setComplaintForm((prev) => ({
+                                ...prev,
+                                issueTypes: checked
+                                  ? [...prev.issueTypes, issue.value]
+                                  : prev.issueTypes.filter(
+                                      (t) => t !== issue.value
+                                    ),
+                              }));
+                            }}
+                          />
+                          <span className="text-sm text-gray-700">
+                            {issue.label}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    {complaintForm.issueTypes.includes("other") && (
+                      <input
+                        type="text"
+                        required
+                        placeholder="Please specify other issue type"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none mt-2"
+                        value={complaintForm.otherIssueType}
+                        onChange={(e) =>
+                          setComplaintForm((prev) => ({
+                            ...prev,
+                            otherIssueType: e.target.value,
+                          }))
+                        }
+                      />
+                    )}
+                  </div>
+                )}
 
                 <label className="block space-y-1">
                   <span className="text-sm font-medium text-gray-700">
