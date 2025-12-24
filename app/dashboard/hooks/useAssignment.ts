@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   assignComplaint as assignComplaintApi,
   getDistrictOfficers,
   type ApiComplaint,
   type ApiUser,
 } from "@/lib/api";
+import { districtOptions } from "../utils/constants";
 
 interface UseAssignmentOptions {
   token: string | null;
@@ -33,6 +34,18 @@ export function useAssignment({
   const [assigning, setAssigning] = useState(false);
   const [assignmentError, setAssignmentError] = useState<string | null>(null);
 
+  const complaintDistrict = activeComplaint?.district;
+
+  const eligibleDistrictOfficers = useMemo(() => {
+    if (!complaintDistrict) return districtOfficers;
+    return districtOfficers.filter((o) => o.district === complaintDistrict);
+  }, [districtOfficers, complaintDistrict]);
+
+  const complaintDistrictLabel = useMemo(() => {
+    const match = districtOptions.find((d) => d.value === complaintDistrict);
+    return match?.label ?? complaintDistrict ?? "";
+  }, [complaintDistrict]);
+
   const clearAssignmentError = useCallback(() => {
     setAssignmentError(null);
   }, []);
@@ -54,6 +67,7 @@ export function useAssignment({
   const handleOpenAssignmentModal = useCallback(() => {
     setAssignmentModal(true);
     setAssignmentError(null);
+    setAssignee("");
     if (districtOfficers.length === 0) {
       fetchDistrictOfficers();
     }
@@ -70,6 +84,14 @@ export function useAssignment({
     }
     if (!assignee) {
       setAssignmentError("Please select a district officer.");
+      return;
+    }
+
+    const officer = districtOfficers.find((o) => o.id === assignee);
+    if (complaintDistrict && officer?.district !== complaintDistrict) {
+      setAssignmentError(
+        `Please select a district officer in ${complaintDistrictLabel}.`
+      );
       return;
     }
     if (!expectedResolutionDate) {
@@ -124,6 +146,8 @@ export function useAssignment({
     assignee,
     expectedResolutionDate,
     districtOfficers,
+    complaintDistrict,
+    complaintDistrictLabel,
     currentUser?.role,
     onComplaintUpdate,
     onSuccess,
@@ -143,6 +167,7 @@ export function useAssignment({
     assignee,
     expectedResolutionDate,
     districtOfficers,
+    eligibleDistrictOfficers,
     districtOfficersLoading,
     assigning,
     assignmentError,

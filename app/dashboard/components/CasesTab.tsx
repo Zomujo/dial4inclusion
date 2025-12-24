@@ -3,6 +3,7 @@
 import type { ApiComplaint } from "@/lib/api";
 import { CasesTable } from "./CasesTable";
 import { EscalationsSection } from "./EscalationsSection";
+import { districtOptions } from "../utils/constants";
 
 interface CasesTabProps {
   isAdmin: boolean;
@@ -14,7 +15,12 @@ interface CasesTabProps {
   selectedCase: string | null;
   statusUpdatingId: string | null;
   onSelect: (id: string) => void;
-  onUpdateStatus: (complaintId: string, newStatus: ApiComplaint["status"]) => void;
+  onUpdateStatus: (
+    complaintId: string,
+    newStatus: ApiComplaint["status"]
+  ) => void;
+  adminDistrict?: string;
+  onAdminDistrictChange?: (district: string) => void;
 }
 
 export function CasesTab({
@@ -28,6 +34,8 @@ export function CasesTab({
   statusUpdatingId,
   onSelect,
   onUpdateStatus,
+  adminDistrict,
+  onAdminDistrictChange,
 }: CasesTabProps) {
   return (
     <div className="space-y-6">
@@ -60,6 +68,27 @@ export function CasesTab({
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
+          {isAdmin && (
+            <div className="flex flex-wrap gap-2">
+              {districtOptions.map((d) => {
+                const active = adminDistrict === d.value;
+                return (
+                  <button
+                    key={d.value}
+                    type="button"
+                    onClick={() => onAdminDistrictChange?.(d.value)}
+                    className={`rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                      active
+                        ? "bg-blue-600 text-white"
+                        : "border border-gray-300 bg-white text-gray-900 hover:bg-gray-50"
+                    }`}
+                  >
+                    {d.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
           <select
             className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none"
             value={statusFilter}
@@ -80,9 +109,9 @@ export function CasesTab({
           complaints={filteredComplaints}
           selectedCase={selectedCase}
           onSelect={onSelect}
+          showDistrictColumn={!isAdmin}
         />
       </div>
     </div>
   );
 }
-

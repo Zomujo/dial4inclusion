@@ -11,12 +11,14 @@ interface CasesTableProps {
   complaints: ApiComplaint[];
   selectedCase: string | null;
   onSelect: (id: string) => void;
+  showDistrictColumn?: boolean;
 }
 
 export function CasesTable({
   complaints,
   selectedCase,
   onSelect,
+  showDistrictColumn = true,
 }: CasesTableProps) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -36,9 +38,11 @@ export function CasesTable({
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 ID
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                District
-              </th>
+              {showDistrictColumn && (
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  District
+                </th>
+              )}
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Category
               </th>
@@ -65,9 +69,11 @@ export function CasesTable({
                 <td className="px-6 py-4 text-sm font-medium text-gray-900">
                   {c.id.slice(0, 8)}
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-700">
-                  {formatDisplayText(c.district)}
-                </td>
+                {showDistrictColumn && (
+                  <td className="px-6 py-4 text-sm text-gray-700">
+                    {formatDisplayText(c.district)}
+                  </td>
+                )}
                 <td className="px-6 py-4 text-sm text-gray-700">
                   {formatDisplayText(c.category)}
                 </td>

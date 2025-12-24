@@ -1,6 +1,7 @@
 "use client";
 
 import type { ApiUser } from "@/lib/api";
+import { formatDisplayText } from "../utils/formatters";
 
 interface AssignmentModalProps {
   assignee: string;
@@ -61,10 +62,16 @@ export function AssignmentModal({
               </option>
               {districtOfficers.map((officer) => (
                 <option key={officer.id} value={officer.id}>
-                  {officer.fullName} - {officer.district} ({officer.email})
+                  {officer.fullName} - {formatDisplayText(officer.district)} (
+                  {officer.email})
                 </option>
               ))}
             </select>
+            {!districtOfficersLoading && districtOfficers.length === 0 && (
+              <p className="mt-2 text-xs text-gray-500">
+                No district officers found for this case’s district.
+              </p>
+            )}
           </div>
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-700">

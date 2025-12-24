@@ -14,6 +14,7 @@ import { CaseDetailsModal } from "./components/CaseDetailsModal";
 import { NewCaseModal } from "./components/NewCaseModal";
 import { AssignmentModal } from "./components/AssignmentModal";
 import { EscalationModal } from "./components/EscalationModal";
+import { districtOptions } from "./utils/constants";
 
 export default function DashboardPage() {
   const {
@@ -29,6 +30,9 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("cases");
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [newCaseModal, setNewCaseModal] = useState(false);
+  const [adminDistrict, setAdminDistrict] = useState(
+    districtOptions[0]?.value ?? "ablekuma_central"
+  );
 
   const {
     monitoringMetrics,
@@ -91,6 +95,7 @@ export default function DashboardPage() {
     assignee,
     expectedResolutionDate,
     districtOfficers,
+    eligibleDistrictOfficers,
     districtOfficersLoading,
     assigning,
     assignmentError,
@@ -179,6 +184,14 @@ export default function DashboardPage() {
     closeEscalationModal();
   }, [closeCaseDetailsModal, closeAssignmentModal, closeEscalationModal]);
 
+  const handleAdminDistrictChange = useCallback(
+    (district: string) => {
+      setAdminDistrict(district);
+      handleCloseCaseDetailsModal();
+    },
+    [handleCloseCaseDetailsModal]
+  );
+
   // Handle case selection - also close assignment/escalation modals
   const handleCaseSelect = useCallback(
     (id: string) => {
@@ -213,18 +226,23 @@ export default function DashboardPage() {
   const renderTabContent = () => {
     switch (activeTab) {
       case "cases":
+        const casesForTab = isAdmin
+          ? filteredComplaints.filter((c) => c.district === adminDistrict)
+          : filteredComplaints;
         return (
           <CasesTab
             isAdmin={isAdmin}
             isDistrictOfficer={isDistrictOfficer}
             escalatedToMe={escalatedToMe}
-            filteredComplaints={filteredComplaints}
+            filteredComplaints={casesForTab}
             statusFilter={statusFilter}
             setStatusFilter={setStatusFilter}
             selectedCase={selectedCase}
             statusUpdatingId={statusUpdatingId}
             onSelect={handleCaseSelect}
             onUpdateStatus={handleUpdateStatus}
+            adminDistrict={adminDistrict}
+            onAdminDistrictChange={handleAdminDistrictChange}
           />
         );
 
@@ -302,7 +320,7 @@ export default function DashboardPage() {
           setAssignee={setAssignee}
           expectedResolutionDate={expectedResolutionDate}
           setExpectedResolutionDate={setExpectedResolutionDate}
-          districtOfficers={districtOfficers}
+          districtOfficers={eligibleDistrictOfficers}
           districtOfficersLoading={districtOfficersLoading}
           assigning={assigning}
           errorMessage={assignmentError}
