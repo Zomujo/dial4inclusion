@@ -1,7 +1,11 @@
 "use client";
 
 import type { ApiComplaint } from "@/lib/api";
-import { formatComplaintStatus, formatDisplayText } from "../utils/formatters";
+import {
+  formatComplaintDate,
+  formatComplaintStatus,
+  formatDisplayText,
+} from "../utils/formatters";
 
 interface CasesTableProps {
   complaints: ApiComplaint[];
@@ -18,7 +22,9 @@ export function CasesTable({
     <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
       <div className="border-b border-gray-200 px-6 py-4">
         <h3 className="font-semibold text-gray-900">Active Cases</h3>
-        <p className="text-sm text-gray-600">{complaints.length} cases showing</p>
+        <p className="text-sm text-gray-600">
+          {complaints.length} cases showing
+        </p>
         <p className="mt-1 text-xs text-gray-500">
           Click a case row to open details.
         </p>
@@ -35,6 +41,12 @@ export function CasesTable({
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Category
+              </th>
+              <th className="hidden lg:table-cell px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Description
+              </th>
+              <th className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Expected Resolution
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Status
@@ -58,6 +70,19 @@ export function CasesTable({
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-700">
                   {formatDisplayText(c.category)}
+                </td>
+                <td
+                  className="hidden lg:table-cell px-6 py-4 text-sm text-gray-700"
+                  title={c.description ?? ""}
+                >
+                  <span className="block max-w-md truncate">
+                    {c.description?.trim() ? c.description : "—"}
+                  </span>
+                </td>
+                <td className="hidden md:table-cell px-6 py-4 text-sm text-gray-700">
+                  {c.expectedResolutionDate
+                    ? formatComplaintDate(c.expectedResolutionDate)
+                    : "—"}
                 </td>
                 <td className="px-6 py-4">
                   <span
@@ -84,4 +109,3 @@ export function CasesTable({
     </div>
   );
 }
-
