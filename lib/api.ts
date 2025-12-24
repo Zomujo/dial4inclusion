@@ -237,6 +237,50 @@ export async function submitComplaint(
   return { code: response.data || "" };
 }
 
+export async function submitComplaintByNavigator(
+  token: string,
+  input: {
+    // PWD Personal Information
+    fullName?: string;
+    age?: number;
+    gender?: string;
+    primaryDisabilityCategory?: string;
+    otherDisability?: string;
+    assistiveDevice?: string;
+    otherAssistiveDevice?: string;
+    // Contact Information
+    phoneNumber: string;
+    caregiverPhoneNumber?: string;
+    language?: string;
+    // Issue Classification
+    category: string;
+    otherCategory?: string;
+    issueTypes?: string[];
+    otherIssueType?: string;
+    // Request Information
+    requestType?: string;
+    requestDescription?: string;
+    otherRequest?: string;
+    // Location & Details
+    district: string;
+    description?: string;
+  },
+  options?: { code?: string }
+): Promise<{ code: string }> {
+  const qs = options?.code ? `?code=${encodeURIComponent(options.code)}` : "";
+
+  const response = await apiFetch<{ data: string }>(
+    `/complaints/navigators${qs}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(input),
+      token,
+    }
+  );
+
+  return { code: response.data || "" };
+}
+
 export async function getNavigators(token: string): Promise<{
   rows: ApiUser[];
 }> {

@@ -6,6 +6,7 @@ import {
   getComplaint,
   getUser,
   submitComplaint as submitComplaintApi,
+  submitComplaintByNavigator,
   updateComplaintStatus as updateComplaintStatusApi,
   type ApiComplaint,
   type ApiUser,
@@ -123,7 +124,7 @@ export function useComplaints({
       try {
         const isDetailed = complaintForm.complaintType === "detailed";
 
-        const result = await submitComplaintApi(token, {
+        const payload = {
           fullName: isDetailed ? complaintForm.fullName : "Anonymous",
           age: isDetailed ? parseInt(complaintForm.age) || 18 : 18,
           gender: isDetailed ? complaintForm.gender : "other",
@@ -147,7 +148,12 @@ export function useComplaints({
           otherRequest: complaintForm.otherRequest || undefined,
           district: complaintForm.district,
           description: complaintForm.description,
-        });
+        };
+
+        const result =
+          currentUser?.role === "navigator"
+            ? await submitComplaintByNavigator(token, payload)
+            : await submitComplaintApi(token, payload);
 
         await refreshComplaints();
 
