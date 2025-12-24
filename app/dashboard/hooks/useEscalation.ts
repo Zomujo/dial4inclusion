@@ -31,6 +31,11 @@ export function useEscalation({
   const [admins, setAdmins] = useState<ApiUser[]>([]);
   const [adminsLoading, setAdminsLoading] = useState(false);
   const [escalating, setEscalating] = useState(false);
+  const [escalationError, setEscalationError] = useState<string | null>(null);
+
+  const clearEscalationError = useCallback(() => {
+    setEscalationError(null);
+  }, []);
 
   const fetchAdmins = useCallback(async () => {
     if (!token) return;
@@ -57,14 +62,32 @@ export function useEscalation({
 
   const handleOpenEscalationModal = useCallback(() => {
     setEscalationModal(true);
+    setEscalationError(null);
     if (admins.length === 0) {
       fetchAdmins();
     }
   }, [admins.length, fetchAdmins]);
 
   const handleEscalate = useCallback(async () => {
-    if (!token || !activeComplaint || !targetAdmin || !escalationReason) return;
+    if (!token) {
+      setEscalationError("Session expired. Please sign in again.");
+      return;
+    }
+    if (!activeComplaint) {
+      setEscalationError("No active complaint selected.");
+      return;
+    }
+    if (!targetAdmin) {
+      setEscalationError("Please select an admin to escalate to.");
+      return;
+    }
+    if (!escalationReason.trim()) {
+      setEscalationError("Please provide an escalation reason.");
+      return;
+    }
+
     setEscalating(true);
+    setEscalationError(null);
     try {
       const complaint = await escalateComplaintApi(token, activeComplaint.id, {
         assignedToId: targetAdmin,
@@ -81,9 +104,13 @@ export function useEscalation({
       }
     } catch (error) {
       console.error("Failed to escalate complaint:", error);
-      alert(
-        error instanceof Error ? error.message : "Failed to escalate complaint"
-      );
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+          ? error
+          : "Failed to escalate complaint";
+      setEscalationError(message);
     } finally {
       setEscalating(false);
     }
@@ -103,6 +130,7 @@ export function useEscalation({
     setEscalationModal(false);
     setTargetAdmin("");
     setEscalationReason("");
+    setEscalationError(null);
   }, []);
 
   return {
@@ -113,6 +141,7 @@ export function useEscalation({
     admins,
     adminsLoading,
     escalating,
+    escalationError,
     // Setters
     setTargetAdmin,
     setEscalationReason,
@@ -121,6 +150,7 @@ export function useEscalation({
     handleOpenEscalationModal,
     handleEscalate,
     closeEscalationModal,
+    clearEscalationError,
   };
 }
 

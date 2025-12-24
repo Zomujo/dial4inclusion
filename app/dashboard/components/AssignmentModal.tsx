@@ -10,6 +10,8 @@ interface AssignmentModalProps {
   districtOfficers: ApiUser[];
   districtOfficersLoading: boolean;
   assigning: boolean;
+  errorMessage: string | null;
+  onClearError: () => void;
   onAssign: () => void;
   onClose: () => void;
 }
@@ -22,6 +24,8 @@ export function AssignmentModal({
   districtOfficers,
   districtOfficersLoading,
   assigning,
+  errorMessage,
+  onClearError,
   onAssign,
   onClose,
 }: AssignmentModalProps) {
@@ -32,6 +36,11 @@ export function AssignmentModal({
           Assign Complaint
         </h3>
         <div className="space-y-4">
+          {errorMessage && (
+            <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+              {errorMessage}
+            </div>
+          )}
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-700">
               Assign to District Officer
@@ -39,7 +48,10 @@ export function AssignmentModal({
             <select
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               value={assignee}
-              onChange={(e) => setAssignee(e.target.value)}
+              onChange={(e) => {
+                onClearError();
+                setAssignee(e.target.value);
+              }}
               disabled={districtOfficersLoading}
             >
               <option value="">
@@ -56,13 +68,17 @@ export function AssignmentModal({
           </div>
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-700">
-              Expected Resolution Date (Optional)
+              Expected Resolution Date
             </label>
+            <p className="mb-2 text-xs text-gray-500">Required</p>
             <input
               type="datetime-local"
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               value={expectedResolutionDate}
-              onChange={(e) => setExpectedResolutionDate(e.target.value)}
+              onChange={(e) => {
+                onClearError();
+                setExpectedResolutionDate(e.target.value);
+              }}
             />
           </div>
           <div className="flex gap-3">
@@ -75,7 +91,7 @@ export function AssignmentModal({
               Cancel
             </button>
             <button
-              disabled={!assignee || assigning}
+              disabled={assigning}
               className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
               onClick={onAssign}
             >

@@ -31,6 +31,11 @@ export function useAssignment({
   const [districtOfficers, setDistrictOfficers] = useState<ApiUser[]>([]);
   const [districtOfficersLoading, setDistrictOfficersLoading] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
+
+  const clearAssignmentError = useCallback(() => {
+    setAssignmentError(null);
+  }, []);
 
   const fetchDistrictOfficers = useCallback(async () => {
     if (!token) return;
@@ -48,18 +53,34 @@ export function useAssignment({
 
   const handleOpenAssignmentModal = useCallback(() => {
     setAssignmentModal(true);
+    setAssignmentError(null);
     if (districtOfficers.length === 0) {
       fetchDistrictOfficers();
     }
   }, [districtOfficers.length, fetchDistrictOfficers]);
 
   const handleAssign = useCallback(async () => {
-    if (!token || !activeComplaint || !assignee) return;
+    if (!token) {
+      setAssignmentError("Session expired. Please sign in again.");
+      return;
+    }
+    if (!activeComplaint) {
+      setAssignmentError("No active complaint selected.");
+      return;
+    }
+    if (!assignee) {
+      setAssignmentError("Please select a district officer.");
+      return;
+    }
+    if (!expectedResolutionDate) {
+      setAssignmentError("Expected resolution date is required.");
+      return;
+    }
+
     setAssigning(true);
+    setAssignmentError(null);
     try {
-      const expectedDate = expectedResolutionDate
-        ? new Date(expectedResolutionDate).toISOString()
-        : undefined;
+      const expectedDate = new Date(expectedResolutionDate).toISOString();
       const complaint = await assignComplaintApi(token, activeComplaint.id, {
         assignedToId: assignee,
         expectedResolutionDate: expectedDate,
@@ -75,9 +96,25 @@ export function useAssignment({
       }
     } catch (error) {
       console.error("Failed to assign complaint:", error);
-      alert(
-        error instanceof Error ? error.message : "Failed to assign complaint"
-      );
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+          ? error
+          : "Failed to assign complaint";
+      const normalized = message.toLowerCase().replace(/\s+/g, "");
+      if (
+        normalized.includes("expectedresolutiondate") &&
+        (normalized.includes("shouldnotbeempty") ||
+          normalized.includes("min") ||
+          normalized.includes("minimalalloweddate"))
+      ) {
+        setAssignmentError(
+          "Please set an expected resolution date (it must be in the future)."
+        );
+      } else {
+        setAssignmentError(message);
+      }
     } finally {
       setAssigning(false);
     }
@@ -97,6 +134,7 @@ export function useAssignment({
     setAssignmentModal(false);
     setAssignee("");
     setExpectedResolutionDate("");
+    setAssignmentError(null);
   }, []);
 
   return {
@@ -107,6 +145,7 @@ export function useAssignment({
     districtOfficers,
     districtOfficersLoading,
     assigning,
+    assignmentError,
     // Setters
     setAssignee,
     setExpectedResolutionDate,
@@ -115,6 +154,7 @@ export function useAssignment({
     handleOpenAssignmentModal,
     handleAssign,
     closeAssignmentModal,
+    clearAssignmentError,
   };
 }
 

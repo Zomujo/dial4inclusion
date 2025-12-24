@@ -31,7 +31,6 @@ export default function DashboardPage() {
   const [newCaseModal, setNewCaseModal] = useState(false);
 
   const {
-    monitoringStats,
     monitoringMetrics,
     overdueComplaints,
     navigatorUpdates,
@@ -43,7 +42,6 @@ export default function DashboardPage() {
   } = useMonitoring({ token, currentUser });
 
   const {
-    liveComplaints,
     complaintsLoading,
     complaintsError,
     complaintForm,
@@ -60,7 +58,6 @@ export default function DashboardPage() {
     setComplaintForm,
     setStatusFilter,
     setLastAction,
-    setComplaintsError,
     setComplaintStatus,
     refreshComplaints,
     handleComplaintSubmit,
@@ -96,12 +93,14 @@ export default function DashboardPage() {
     districtOfficers,
     districtOfficersLoading,
     assigning,
+    assignmentError,
     setAssignee,
     setExpectedResolutionDate,
     fetchDistrictOfficers,
     handleOpenAssignmentModal,
     handleAssign,
     closeAssignmentModal,
+    clearAssignmentError,
   } = useAssignment({
     token,
     currentUser,
@@ -118,12 +117,14 @@ export default function DashboardPage() {
     admins,
     adminsLoading,
     escalating,
+    escalationError,
     setTargetAdmin,
     setEscalationReason,
     fetchAdmins,
     handleOpenEscalationModal,
     handleEscalate,
     closeEscalationModal,
+    clearEscalationError,
   } = useEscalation({
     token,
     currentUser,
@@ -304,6 +305,8 @@ export default function DashboardPage() {
           districtOfficers={districtOfficers}
           districtOfficersLoading={districtOfficersLoading}
           assigning={assigning}
+          errorMessage={assignmentError}
+          onClearError={clearAssignmentError}
           onAssign={handleAssign}
           onClose={closeAssignmentModal}
         />
@@ -319,6 +322,8 @@ export default function DashboardPage() {
           admins={admins}
           adminsLoading={adminsLoading}
           escalating={escalating}
+          errorMessage={escalationError}
+          onClearError={clearEscalationError}
           onEscalate={handleEscalate}
           onClose={closeEscalationModal}
         />
