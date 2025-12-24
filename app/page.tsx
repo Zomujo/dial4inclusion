@@ -9,9 +9,9 @@ import {
 import { loadAuth, saveAuth } from "@/lib/storage";
 
 const stats = [
-  { label: "Complaints resolved", value: "2.4k+" },
-  { label: "Avg. first response", value: "18h" },
-  { label: "Navigators online", value: "63" },
+  { label: "Districts", value: "3" },
+  { label: "Navigators", value: "30" },
+  { label: "Persons with disabilities", value: "150+" },
 ];
 
 const highlights = [
