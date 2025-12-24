@@ -45,6 +45,11 @@ export default function DashboardPage() {
     fetchNavigators,
   } = useMonitoring({ token, currentUser });
 
+  const refreshStatsForAdmin = useCallback(() => {
+    if (!token || currentUser?.role !== "admin") return;
+    refreshStats(adminDistrict);
+  }, [token, currentUser?.role, refreshStats, adminDistrict]);
+
   const {
     complaintsLoading,
     complaintsError,
@@ -75,7 +80,7 @@ export default function DashboardPage() {
   } = useComplaints({
     token,
     currentUser,
-    onStatsRefresh: refreshStats,
+    onStatsRefresh: refreshStatsForAdmin,
   });
 
   const handleAssignSuccess = useCallback(
@@ -114,7 +119,7 @@ export default function DashboardPage() {
     activeComplaint,
     onComplaintUpdate: updateComplaintInList,
     onSuccess: handleAssignSuccess,
-    onStatsRefresh: refreshStats,
+    onStatsRefresh: refreshStatsForAdmin,
   });
 
   const {
@@ -138,7 +143,7 @@ export default function DashboardPage() {
     activeComplaint,
     onComplaintUpdate: updateComplaintInList,
     onSuccess: handleEscalateSuccess,
-    onStatsRefresh: refreshStats,
+    onStatsRefresh: refreshStatsForAdmin,
   });
 
   // Initial data loading
@@ -146,8 +151,8 @@ export default function DashboardPage() {
     if (!token) return;
     refreshComplaints();
     if (currentUser?.role === "admin") {
-      refreshStats();
-      refreshNavigatorUpdates();
+      refreshStatsForAdmin();
+      refreshNavigatorUpdates(adminDistrict);
       refreshOverdueComplaints();
       fetchNavigators();
       fetchDistrictOfficers();
@@ -163,20 +168,25 @@ export default function DashboardPage() {
     fetchNavigators,
     fetchDistrictOfficers,
     fetchAdmins,
+    refreshStatsForAdmin,
+    adminDistrict,
   ]);
 
   // Refresh monitoring data when tab changes to monitoring
   useEffect(() => {
     if (activeTab === "monitoring" && token && currentUser?.role === "admin") {
-      refreshNavigatorUpdates();
+      refreshStatsForAdmin();
+      refreshNavigatorUpdates(adminDistrict);
       refreshOverdueComplaints();
     }
   }, [
     activeTab,
     token,
     currentUser?.role,
+    refreshStatsForAdmin,
     refreshNavigatorUpdates,
     refreshOverdueComplaints,
+    adminDistrict,
   ]);
 
   // Handle closing case details modal - also close assignment/escalation modals
@@ -190,8 +200,17 @@ export default function DashboardPage() {
     (district: string) => {
       setAdminDistrict(district);
       handleCloseCaseDetailsModal();
+      if (currentUser?.role === "admin") {
+        refreshStats(district);
+        refreshNavigatorUpdates(district);
+      }
     },
-    [handleCloseCaseDetailsModal]
+    [
+      handleCloseCaseDetailsModal,
+      currentUser?.role,
+      refreshStats,
+      refreshNavigatorUpdates,
+    ]
   );
 
   // Handle case selection - also close assignment/escalation modals
@@ -254,6 +273,9 @@ export default function DashboardPage() {
             monitoringMetrics={monitoringMetrics}
             overdueComplaints={overdueComplaints}
             navigatorUpdates={navigatorUpdates}
+            isAdmin={isAdmin}
+            adminDistrict={adminDistrict}
+            onAdminDistrictChange={handleAdminDistrictChange}
           />
         );
 

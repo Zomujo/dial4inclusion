@@ -361,16 +361,22 @@ export interface ComplaintStats {
 }
 
 export async function getComplaintStats(
-  token: string
+  token: string,
+  options?: { district?: string }
 ): Promise<ComplaintStats> {
-  // Note: These endpoints may not exist in the new backend yet
-  // Returning dummy data for now
-  return {
-    activeCases: 0,
-    avgResponseHours: 0,
-    resolutionRate: 0,
-    overdueCases: 0,
-  };
+  const qs = options?.district
+    ? `?district=${encodeURIComponent(options.district)}`
+    : "";
+
+  const response = await apiFetch<{ data: ComplaintStats }>(
+    `/complaints/stats${qs}`,
+    {
+      method: "GET",
+      token,
+    }
+  );
+
+  return response.data;
 }
 
 export interface NavigatorUpdate {
@@ -386,11 +392,64 @@ export interface NavigatorUpdate {
 
 export async function getNavigatorUpdates(
   token: string,
-  limit?: number
+  options?: {
+    district?: string;
+    page?: number;
+    pageSize?: number;
+  }
 ): Promise<NavigatorUpdate[]> {
-  // Note: These endpoints may not exist in the new backend yet
-  // Returning empty array for now
-  return [];
+  type NavigatorUpdateRow = {
+    id: string;
+    createdAt?: string;
+    updatedAt: string;
+    complaintId: string;
+    complaint?: ApiComplaint;
+    district?: string;
+    oldStatus: string;
+    newStatus: string;
+    updatedBy?: ApiUser;
+  };
+
+  const params = new URLSearchParams();
+  params.set("page", String(options?.page ?? 1));
+  params.set("pageSize", String(options?.pageSize ?? 10));
+  if (options?.district) {
+    params.set("district", options.district);
+  }
+  params.append("populate", "complaint");
+  params.append("populate", "updatedBy");
+
+  const qs = params.toString();
+  const response = await apiFetch<{
+    data: {
+      rows: NavigatorUpdateRow[];
+    };
+  }>(`/complaints/navigator-updates?${qs}`, {
+    method: "GET",
+    token,
+  });
+
+  const rows = response.data?.rows ?? [];
+
+  return rows.map((row) => {
+    const complaint = row.complaint;
+    const complaintTitle = complaint?.code
+      ? `Case ${complaint.code}`
+      : complaint?.category
+      ? `Case ${complaint.category}`
+      : "Case update";
+
+    return {
+      id: row.id,
+      complaintId: row.complaintId,
+      complaintTitle,
+      navigatorName: row.updatedBy?.fullName ?? "Unknown",
+      navigatorEmail: row.updatedBy?.email ?? "",
+      oldStatus: row.oldStatus,
+      newStatus: row.newStatus,
+      updatedAt: row.updatedAt,
+    };
+  });
 }
 
 export async function getOverdueComplaints(

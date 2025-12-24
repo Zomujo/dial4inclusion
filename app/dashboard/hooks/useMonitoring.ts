@@ -23,8 +23,12 @@ export function useMonitoring({ token, currentUser }: UseMonitoringOptions) {
     resolutionRate: number;
     overdueCases: number;
   } | null>(null);
-  const [overdueComplaints, setOverdueComplaints] = useState<ApiComplaint[]>([]);
-  const [navigatorUpdates, setNavigatorUpdates] = useState<NavigatorUpdate[]>([]);
+  const [overdueComplaints, setOverdueComplaints] = useState<ApiComplaint[]>(
+    []
+  );
+  const [navigatorUpdates, setNavigatorUpdates] = useState<NavigatorUpdate[]>(
+    []
+  );
   const [navigators, setNavigators] = useState<ApiUser[]>([]);
 
   const monitoringMetrics = useMemo(
@@ -61,25 +65,35 @@ export function useMonitoring({ token, currentUser }: UseMonitoringOptions) {
     [monitoringStats]
   );
 
-  const refreshStats = useCallback(async () => {
-    if (!token) return;
-    try {
-      const stats = await getComplaintStats(token);
-      setMonitoringStats(stats);
-    } catch (error) {
-      console.error("Failed to load stats:", error);
-    }
-  }, [token]);
+  const refreshStats = useCallback(
+    async (district?: string) => {
+      if (!token) return;
+      try {
+        const stats = await getComplaintStats(token, { district });
+        setMonitoringStats(stats);
+      } catch (error) {
+        console.error("Failed to load stats:", error);
+      }
+    },
+    [token]
+  );
 
-  const refreshNavigatorUpdates = useCallback(async () => {
-    if (!token) return;
-    try {
-      const updates = await getNavigatorUpdates(token, 10);
-      setNavigatorUpdates(updates);
-    } catch (error) {
-      console.error("Failed to load navigator updates:", error);
-    }
-  }, [token]);
+  const refreshNavigatorUpdates = useCallback(
+    async (district?: string) => {
+      if (!token) return;
+      try {
+        const updates = await getNavigatorUpdates(token, {
+          district,
+          page: 1,
+          pageSize: 10,
+        });
+        setNavigatorUpdates(updates);
+      } catch (error) {
+        console.error("Failed to load navigator updates:", error);
+      }
+    },
+    [token]
+  );
 
   const refreshOverdueComplaints = useCallback(async () => {
     if (!token) return;
@@ -115,4 +129,3 @@ export function useMonitoring({ token, currentUser }: UseMonitoringOptions) {
     fetchNavigators,
   };
 }
-
