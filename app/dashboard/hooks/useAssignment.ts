@@ -38,7 +38,17 @@ export function useAssignment({
 
   const eligibleDistrictOfficers = useMemo(() => {
     if (!complaintDistrict) return districtOfficers;
-    return districtOfficers.filter((o) => o.district === complaintDistrict);
+    const filtered = districtOfficers.filter((o) => o.district === complaintDistrict);
+    console.log(
+      "useAssignment: complaintDistrict=",
+      complaintDistrict,
+      "districtOfficers.count=",
+      districtOfficers.length,
+      "eligible.count=",
+      filtered.length,
+      filtered.map((o) => ({ id: o.id, fullName: o.fullName, district: o.district }))
+    );
+    return filtered;
   }, [districtOfficers, complaintDistrict]);
 
   const complaintDistrictLabel = useMemo(() => {
@@ -52,25 +62,37 @@ export function useAssignment({
 
   const fetchDistrictOfficers = useCallback(async () => {
     if (!token) return;
-    if (currentUser?.role !== "admin") return;
+    // allow admin and district officers to fetch (service applies filtering)
+    if (currentUser?.role !== "admin" && currentUser?.role !== "district_officer") return;
     setDistrictOfficersLoading(true);
     try {
-      const response = await getDistrictOfficers(token);
+      const response = await getDistrictOfficers(token, complaintDistrict ?? undefined);
+      console.log(
+        "useAssignment.fetchDistrictOfficers: fetched",
+        (response.rows || []).length,
+        "officers",
+        response.rows
+      );
       setDistrictOfficers(response.rows || []);
     } catch (error) {
       console.error("Failed to load district officers:", error);
     } finally {
       setDistrictOfficersLoading(false);
     }
-  }, [token, currentUser?.role]);
+  }, [token, currentUser?.role, complaintDistrict]);
 
   const handleOpenAssignmentModal = useCallback(() => {
     setAssignmentModal(true);
     setAssignmentError(null);
     setAssignee("");
-    if (districtOfficers.length === 0) {
-      fetchDistrictOfficers();
-    }
+    console.log(
+      "useAssignment.handleOpenAssignmentModal: complaintDistrict=",
+      complaintDistrict,
+      "current districtOfficers.count=",
+      districtOfficers.length
+    );
+    // Always attempt to fetch to ensure list is fresh and logs appear
+    fetchDistrictOfficers();
   }, [districtOfficers.length, fetchDistrictOfficers]);
 
   const handleAssign = useCallback(async () => {

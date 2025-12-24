@@ -3,6 +3,8 @@
 import { FormEvent, useCallback, useMemo, useState } from "react";
 import {
   getComplaints,
+  getComplaint,
+  getUser,
   submitComplaint as submitComplaintApi,
   updateComplaintStatus as updateComplaintStatusApi,
   type ApiComplaint,
@@ -80,6 +82,7 @@ export function useComplaints({ token, currentUser, onStatsRefresh }: UseComplai
     type: "assign" | "escalate";
     detail: string;
   } | null>(null);
+  const [creatorLoadingIds, setCreatorLoadingIds] = useState<Record<string, boolean>>({});
 
   const refreshComplaints = useCallback(async () => {
     if (!token) return;
@@ -253,6 +256,7 @@ export function useComplaints({ token, currentUser, onStatsRefresh }: UseComplai
 
   const filteredComplaints = useMemo(() => {
     let complaints = liveComplaints;
+
     if (currentUser?.role === "district_officer") {
       complaints = liveComplaints.filter((c) => {
         if (c.assignedToId !== currentUser.id) return false;
@@ -264,6 +268,11 @@ export function useComplaints({ token, currentUser, onStatsRefresh }: UseComplai
           return false;
         return true;
       });
+    }
+
+    // Navigators should only see complaints they created
+    if (currentUser?.role === "navigator") {
+      complaints = liveComplaints.filter((c) => c.createdById === currentUser.id);
     }
 
     if (statusFilter === "All statuses") {
@@ -287,11 +296,40 @@ export function useComplaints({ token, currentUser, onStatsRefresh }: UseComplai
     ? liveComplaints.find((c) => c.id === selectedCase) ?? null
     : filteredComplaints[0] ?? null;
 
-  const handleSelect = useCallback((id: string) => {
-    setSelectedCase(id);
-    setLastAction(null);
-    setStatusUpdateFeedback(null);
-  }, []);
+  const handleSelect = useCallback(
+    async (id: string) => {
+      setSelectedCase(id);
+      setLastAction(null);
+      setStatusUpdateFeedback(null);
+
+      if (!token) return;
+
+      try {
+        const full = await getComplaint(token, id);
+        let merged = { ...full } as ApiComplaint;
+
+        // If backend didn't include related `createdBy`, try fetching the user directly
+        if (full.createdById && !full.createdBy?.fullName) {
+          setCreatorLoadingIds((s) => ({ ...s, [full.createdById!]: true }));
+          try {
+            const user = await getUser(token, full.createdById);
+            merged = { ...merged, createdBy: user };
+          } catch (err) {
+            // ignore — we'll fall back to local lists or 'Unknown'
+          } finally {
+            setCreatorLoadingIds((s) => ({ ...s, [full.createdById!]: false }));
+          }
+        }
+
+        setLiveComplaints((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, ...merged } : c))
+        );
+      } catch (error) {
+        setComplaintsError(error instanceof Error ? error.message : "Failed to load case details");
+      }
+    },
+    [token]
+  );
 
   const closeCaseDetailsModal = useCallback(() => {
     setSelectedCase(null);
@@ -342,6 +380,7 @@ export function useComplaints({ token, currentUser, onStatsRefresh }: UseComplai
     closeCaseDetailsModal,
     updateComplaintInList,
     resetComplaintForm,
+    creatorLoadingIds,
   };
 }
 

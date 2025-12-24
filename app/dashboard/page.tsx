@@ -70,6 +70,7 @@ export default function DashboardPage() {
     closeCaseDetailsModal,
     updateComplaintInList,
     resetComplaintForm,
+    creatorLoadingIds,
   } = useComplaints({
     token,
     currentUser,
@@ -343,6 +344,7 @@ export default function DashboardPage() {
           errorMessage={escalationError}
           onClearError={clearEscalationError}
           onEscalate={handleEscalate}
+          onRefreshAdmins={fetchAdmins}
           onClose={closeEscalationModal}
         />
       )}
@@ -357,6 +359,7 @@ export default function DashboardPage() {
           districtOfficers={districtOfficers}
           navigators={navigators}
           admins={admins}
+          creatorLoadingIds={creatorLoadingIds}
           lastAction={lastAction}
           statusUpdateFeedback={statusUpdateFeedback}
           statusUpdatingId={statusUpdatingId}

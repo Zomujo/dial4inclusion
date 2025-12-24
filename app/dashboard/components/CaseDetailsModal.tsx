@@ -18,6 +18,7 @@ interface CaseDetailsModalProps {
   lastAction: { type: "assign" | "escalate"; detail: string } | null;
   statusUpdateFeedback: { kind: "success" | "error"; message: string } | null;
   statusUpdatingId: string | null;
+  creatorLoadingIds: Record<string, boolean>;
   onClose: () => void;
   onOpenAssignmentModal: () => void;
   onOpenEscalationModal: () => void;
@@ -35,6 +36,7 @@ export function CaseDetailsModal({
   lastAction,
   statusUpdateFeedback,
   statusUpdatingId,
+  creatorLoadingIds,
   onClose,
   onOpenAssignmentModal,
   onOpenEscalationModal,
@@ -51,6 +53,21 @@ export function CaseDetailsModal({
       admins.find((a) => a.id === activeComplaint.assignedToId)?.fullName ||
       activeComplaint.assignedTo?.fullName ||
       "Unassigned"
+    );
+  };
+
+  const getCreatedByName = () => {
+    if (activeComplaint.createdById === currentUser?.id) {
+      return `${currentUser.fullName} (You)`;
+    }
+
+    return (
+      navigators.find((n) => n.id === activeComplaint.createdById)?.fullName ||
+      districtOfficers.find((d) => d.id === activeComplaint.createdById)
+        ?.fullName ||
+      admins.find((a) => a.id === activeComplaint.createdById)?.fullName ||
+      activeComplaint.createdBy?.fullName ||
+      "Unknown"
     );
   };
 
@@ -244,6 +261,20 @@ export function CaseDetailsModal({
               {formatComplaintDate(activeComplaint.createdAt)}
             </p>
           </div>
+
+          {activeComplaint.createdById && (
+            <div>
+              <p className="text-xs uppercase tracking-wide text-gray-500">
+                Created By
+              </p>
+              <p className="text-gray-700">
+                {activeComplaint.createdById &&
+                creatorLoadingIds?.[activeComplaint.createdById]
+                  ? "Loading..."
+                  : getCreatedByName()}
+              </p>
+            </div>
+          )}
 
           {activeComplaint.assignedToId && (
             <div>

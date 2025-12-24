@@ -109,6 +109,8 @@ export interface ApiComplaint {
   status: "pending" | "in_progress" | "resolved" | "rejected" | "escalated";
   assignedToId?: string | null;
   assignedTo?: ApiUser;
+  createdById?: string | null;
+  createdBy?: ApiUser;
   expectedResolutionDate?: string | null;
   respondedAt?: string | null;
   escalatedAt?: string | null;
@@ -178,6 +180,28 @@ export async function getComplaints(token: string): Promise<{
   return response.data;
 }
 
+export async function getComplaint(
+  token: string,
+  id: string
+): Promise<ApiComplaint> {
+  const response = await apiFetch<{ data: ApiComplaint }>(`/complaints/${id}`, {
+    method: "GET",
+    token,
+  });
+  return response.data;
+}
+
+export async function getUser(
+  token: string,
+  id: string
+): Promise<ApiUser> {
+  const response = await apiFetch<{ data: ApiUser }>(`/users/${id}`, {
+    method: "GET",
+    token,
+  });
+  return response.data;
+}
+
 export async function submitComplaint(
   token: string,
   input: {
@@ -228,12 +252,16 @@ export async function getNavigators(token: string): Promise<{
   return response.data;
 }
 
-export async function getDistrictOfficers(token: string): Promise<{
+export async function getDistrictOfficers(
+  token: string,
+  district?: string
+): Promise<{
   rows: ApiUser[];
 }> {
+  const qs = district ? `?role=district_officer&district=${encodeURIComponent(district)}` : `?role=district_officer`;
   const response = await apiFetch<{
     data: { rows: ApiUser[] };
-  }>("/users?role=district_officer", {
+  }>(`/users${qs}`, {
     method: "GET",
     token,
   });

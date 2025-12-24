@@ -14,6 +14,7 @@ interface EscalationModalProps {
   onClearError: () => void;
   onEscalate: () => void;
   onClose: () => void;
+  onRefreshAdmins?: () => void;
 }
 
 export function EscalationModal({
@@ -63,6 +64,18 @@ export function EscalationModal({
                 </option>
               ))}
             </select>
+            <div className="mt-2 flex items-center justify-between">
+              {!adminsLoading && admins.length === 0 && (
+                <p className="text-xs text-gray-500">No admins available.</p>
+              )}
+              <button
+                type="button"
+                onClick={() => onRefreshAdmins?.()}
+                className="text-xs text-blue-600 hover:underline"
+              >
+                Refresh list
+              </button>
+            </div>
           </div>
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-700">
