@@ -2397,7 +2397,7 @@ export default function DashboardPage() {
 
       {/* Assignment Modal */}
       {assignmentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <h3 className="mb-4 text-xl font-bold text-gray-900">
               Assign Complaint
@@ -2464,7 +2464,7 @@ export default function DashboardPage() {
 
       {/* Escalation Modal */}
       {escalationModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <h3 className="mb-4 text-xl font-bold text-gray-900">
               Escalate Complaint
