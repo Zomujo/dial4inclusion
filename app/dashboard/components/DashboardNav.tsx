@@ -33,15 +33,28 @@ export function DashboardNav({
   onLogout,
   isLoading,
 }: DashboardNavProps) {
-  const visibleTabs = isAdmin ? tabs : tabs.filter((t) => t.id !== "monitoring");
+  const visibleTabs = isAdmin
+    ? tabs
+    : tabs.filter((t) => t.id !== "monitoring");
 
   return (
     <nav className="border-b border-gray-200 bg-white shadow-sm">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <div className="flex items-center gap-8">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Dial4Inclusion</h1>
-            <p className="text-sm text-gray-600">PWD Response Dashboard</p>
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white">
+              <img
+                src={encodeURI("/WhatsApp Image 2025-12-22 at 11.39.48.jpeg")}
+                alt="Company logo"
+                className="h-full w-full object-contain"
+              />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">
+                Dial4Inclusion
+              </h1>
+              <p className="text-sm text-gray-600">PWD Response Dashboard</p>
+            </div>
           </div>
           {(isAdmin || isNavigator) && (
             <div className="flex rounded-lg bg-gray-100 p-1">
@@ -83,4 +96,3 @@ export function DashboardNav({
     </nav>
   );
 }
-

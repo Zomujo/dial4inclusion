@@ -106,8 +106,12 @@ export default function LandingPage() {
       <header className="border-b border-white/20 bg-white/40 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 shadow-lg">
-              <span className="text-xl font-bold text-white">D4I</span>
+            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-white shadow-lg">
+              <img
+                src={encodeURI("/WhatsApp Image 2025-12-22 at 11.39.48.jpeg")}
+                alt="Company logo"
+                className="h-full w-full object-contain"
+              />
             </div>
             <div>
               <p className="text-sm font-bold text-gray-900">Dial4Inclusion</p>
@@ -358,6 +362,26 @@ export default function LandingPage() {
           </section>
         </div>
       </main>
+
+      <footer className="border-t border-white/30 bg-white/30 backdrop-blur-sm">
+        <div className="mx-auto max-w-7xl px-6 py-10">
+          <div className="flex flex-col items-center justify-center gap-6">
+            <div className="flex flex-wrap items-center justify-center gap-8">
+              <img
+                src={encodeURI("/Canwordmark_colour copy.png")}
+                alt="CAN wordmark"
+                className="h-10 w-auto object-contain opacity-90"
+              />
+              <img
+                src={encodeURI("/CFLI_Identifier-EN-FR.png")}
+                alt="CFLI identifier"
+                className="h-10 w-auto object-contain opacity-90"
+              />
+            </div>
+            <p className="text-xs text-gray-600">© 2025 Dial4Inclusion</p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
