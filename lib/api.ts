@@ -67,16 +67,6 @@ export interface ApiComplaint {
   fullName?: string;
   age?: number;
   gender?: "male" | "female" | "other" | string;
-  primaryDisabilityCategory?:
-    | "visual_impairment"
-    | "hearing_impairment"
-    | "physical_disability"
-    | "intellectual_disability"
-    | "psychosocial_disability"
-    | "speech_impairment"
-    | "multiple_disabilities"
-    | "other";
-  otherDisability?: string | null;
   assistiveDevice?:
     | "none"
     | "white_cane"
@@ -92,16 +82,22 @@ export interface ApiComplaint {
   language?: string;
   // Issue Classification
   category:
+    | "visual_impairment"
+    | "hearing_impairment"
+    | "physical_disability"
+    | "intellectual_disability"
+    | "psychosocial_disability"
+    | "speech_impairment"
+    | "multiple_disabilities"
     | "disability_fund_delay"
     | "inaccessible_building"
     | "discrimination_abuse"
-    | "other_issue";
+    | "other";
   otherCategory?: string | null;
   issueTypes?: string[]; // For detailed complaints: multiple issue types
   otherIssueType?: string | null;
   // Request Information
   requestType?: string;
-  requestDescription?: string;
   otherRequest?: string | null;
   // Location & Details
   district: "ablekuma_central" | "obuasi_municipal" | "upper_denkyira_east";
@@ -202,29 +198,10 @@ export async function getUser(token: string, id: string): Promise<ApiUser> {
 export async function submitComplaint(
   token: string,
   input: {
-    // PWD Personal Information
-    fullName: string;
-    age: number;
-    gender: string;
-    primaryDisabilityCategory?: string;
-    otherDisability?: string;
-    assistiveDevice: string;
-    otherAssistiveDevice?: string;
-    // Contact Information
     phoneNumber: string;
-    caregiverPhoneNumber?: string;
-    language: string;
-    // Issue Classification
+    district: string;
     category: string;
     otherCategory?: string;
-    issueTypes?: string[];
-    otherIssueType?: string;
-    // Request Information
-    requestType?: string;
-    requestDescription?: string;
-    otherRequest?: string;
-    // Location & Details
-    district: string;
     description?: string;
   }
 ): Promise<{ code: string }> {
@@ -244,8 +221,6 @@ export async function submitComplaintByNavigator(
     fullName?: string;
     age?: number;
     gender?: string;
-    primaryDisabilityCategory?: string;
-    otherDisability?: string;
     assistiveDevice?: string;
     otherAssistiveDevice?: string;
     // Contact Information
@@ -259,7 +234,6 @@ export async function submitComplaintByNavigator(
     otherIssueType?: string;
     // Request Information
     requestType?: string;
-    requestDescription?: string;
     otherRequest?: string;
     // Location & Details
     district: string;

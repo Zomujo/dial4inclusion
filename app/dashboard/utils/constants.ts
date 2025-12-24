@@ -82,11 +82,11 @@ export const ussdPaths = {
 
 export const issueTypeOptions = [
   {
-    value: "access_to_healthcare",
+    value: "access_healthcare",
     label: "Access to Healthcare",
   },
   {
-    value: "access_to_mental_health",
+    value: "access_mental_health",
     label: "Access to Mental Health Support",
   },
   {
@@ -97,7 +97,7 @@ export const issueTypeOptions = [
     value: "physical_accessibility",
     label: "Physical Accessibility Challenge",
   },
-  { value: "education_issue", label: "Education Issue" },
+  { value: "education", label: "Education" },
   {
     value: "employment_livelihood",
     label: "Employment / Livelihood",
@@ -106,14 +106,8 @@ export const issueTypeOptions = [
     value: "social_protection",
     label: "Social Protection (LEAP, Disability Fund)",
   },
-  {
-    value: "assistive_device_need",
-    label: "Assistive Device Need",
-  },
-  {
-    value: "gbv_safety_concern",
-    label: "Gender-Based Violence / Safety",
-  },
+  { value: "assistive_device", label: "Assistive Device" },
+  { value: "gender_based_violence", label: "Gender-Based Violence" },
   {
     value: "legal_human_rights",
     label: "Legal / Human Rights Issue",
@@ -123,7 +117,7 @@ export const issueTypeOptions = [
     label: "Community Participation Barrier",
   },
   {
-    value: "lack_of_documentation",
+    value: "lack_documentation",
     label: "Lack of Documentation",
   },
   { value: "other", label: "Other" },
@@ -136,13 +130,6 @@ export const districtOptions = [
 ];
 
 export const categoryOptions = [
-  { value: "disability_fund_delay", label: "Disability Fund Delay" },
-  { value: "inaccessible_building", label: "Inaccessible Building" },
-  { value: "discrimination_abuse", label: "Discrimination / Abuse" },
-  { value: "other_issue", label: "Other Issue" },
-];
-
-export const disabilityCategoryOptions = [
   { value: "visual_impairment", label: "Visual Impairment" },
   { value: "hearing_impairment", label: "Hearing Impairment" },
   { value: "physical_disability", label: "Physical Disability" },
@@ -150,6 +137,9 @@ export const disabilityCategoryOptions = [
   { value: "psychosocial_disability", label: "Psychosocial Disability" },
   { value: "speech_impairment", label: "Speech Impairment" },
   { value: "multiple_disabilities", label: "Multiple Disabilities" },
+  { value: "disability_fund_delay", label: "Disability Fund Delay" },
+  { value: "inaccessible_building", label: "Inaccessible Building" },
+  { value: "discrimination_abuse", label: "Discrimination / Abuse" },
   { value: "other", label: "Other" },
 ];
 
@@ -165,15 +155,24 @@ export const assistiveDeviceOptions = [
 
 export const requestTypeOptions = [
   { value: "assistive_device_support", label: "Assistive Device Support" },
-  { value: "health_rehabilitation", label: "Health / Rehabilitation Support" },
+  {
+    value: "health_rehabilitation_support",
+    label: "Health / Rehabilitation Support",
+  },
   { value: "mental_health_counselling", label: "Mental Health Counselling" },
   { value: "financial_assistance", label: "Financial Assistance" },
-  { value: "legal_social_welfare", label: "Legal / Social Welfare Support" },
+  {
+    value: "legal_social_welfare_support",
+    label: "Legal / Social Welfare Support",
+  },
   { value: "education_training", label: "Education / Training" },
   { value: "accessibility_improvement", label: "Accessibility Improvement" },
-  { value: "employment_skills", label: "Employment / Skills Support" },
+  { value: "employment_skills_support", label: "Employment / Skills Support" },
   { value: "community_inclusion", label: "Community Inclusion" },
-  { value: "documentation_help", label: "Documentation Help (NHIS, Ghana Card)" },
+  {
+    value: "documentation_assistance",
+    label: "Documentation Assistance (NHIS, Ghana Card)",
+  },
   { value: "transportation_assistance", label: "Transportation Assistance" },
   { value: "other", label: "Other" },
 ];
@@ -192,4 +191,3 @@ export const statusOptionsWithEscalated = [
   { value: "resolved", label: "Resolved" },
   { value: "rejected", label: "Rejected" },
 ];
-

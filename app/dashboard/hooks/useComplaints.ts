@@ -23,14 +23,11 @@ export interface ComplaintFormState {
   caregiverPhoneNumber: string;
   category: string;
   district: string;
-  primaryDisabilityCategory: string;
-  otherDisability: string;
   assistiveDevice: string;
   otherAssistiveDevice: string;
   issueTypes: string[];
   otherIssueType: string;
   requestType: string;
-  requestDescription: string;
   otherRequest: string;
   gender: string;
   language: string;
@@ -46,14 +43,11 @@ const initialFormState: ComplaintFormState = {
   caregiverPhoneNumber: "",
   category: "",
   district: "",
-  primaryDisabilityCategory: "",
-  otherDisability: "",
   assistiveDevice: "none",
   otherAssistiveDevice: "",
   issueTypes: [],
   otherIssueType: "",
   requestType: "",
-  requestDescription: "",
   otherRequest: "",
   gender: "male",
   language: "english",
@@ -124,36 +118,54 @@ export function useComplaints({
       try {
         const isDetailed = complaintForm.complaintType === "detailed";
 
-        const payload = {
-          fullName: isDetailed ? complaintForm.fullName : "Anonymous",
-          age: isDetailed ? parseInt(complaintForm.age) || 18 : 18,
-          gender: isDetailed ? complaintForm.gender : "other",
-          primaryDisabilityCategory: isDetailed
-            ? complaintForm.primaryDisabilityCategory
-            : undefined,
-          otherDisability: complaintForm.otherDisability || undefined,
-          assistiveDevice: isDetailed ? complaintForm.assistiveDevice : "none",
-          otherAssistiveDevice: complaintForm.otherAssistiveDevice || undefined,
+        const base = {
           phoneNumber: complaintForm.phoneNumber,
-          caregiverPhoneNumber: isDetailed
-            ? complaintForm.caregiverPhoneNumber || undefined
-            : undefined,
-          language: isDetailed ? complaintForm.language : "english",
-          category: complaintForm.category,
-          otherCategory: complaintForm.otherCategory || undefined,
-          issueTypes: isDetailed ? complaintForm.issueTypes : undefined,
-          otherIssueType: complaintForm.otherIssueType || undefined,
-          requestType: isDetailed ? complaintForm.requestType : undefined,
-          requestDescription: complaintForm.requestDescription || undefined,
-          otherRequest: complaintForm.otherRequest || undefined,
           district: complaintForm.district,
-          description: complaintForm.description,
+          category: complaintForm.category,
+          otherCategory:
+            complaintForm.category === "other"
+              ? complaintForm.otherCategory || undefined
+              : undefined,
+          description: complaintForm.description || undefined,
         };
+
+        const navigatorPayload = {
+          ...base,
+          ...(isDetailed
+            ? {
+                fullName: complaintForm.fullName || undefined,
+                age: parseInt(complaintForm.age) || undefined,
+                gender: complaintForm.gender || undefined,
+                caregiverPhoneNumber:
+                  complaintForm.caregiverPhoneNumber || undefined,
+                language: complaintForm.language || undefined,
+                assistiveDevice: complaintForm.assistiveDevice || undefined,
+                otherAssistiveDevice:
+                  complaintForm.assistiveDevice === "other"
+                    ? complaintForm.otherAssistiveDevice || undefined
+                    : undefined,
+                issueTypes:
+                  complaintForm.issueTypes.length > 0
+                    ? complaintForm.issueTypes
+                    : undefined,
+                otherIssueType: complaintForm.issueTypes.includes("other")
+                  ? complaintForm.otherIssueType || undefined
+                  : undefined,
+                requestType: complaintForm.requestType || undefined,
+                otherRequest:
+                  complaintForm.requestType === "other"
+                    ? complaintForm.otherRequest || undefined
+                    : undefined,
+              }
+            : {}),
+        };
+
+        const createPayload = base;
 
         const result =
           currentUser?.role === "navigator"
-            ? await submitComplaintByNavigator(token, payload)
-            : await submitComplaintApi(token, payload);
+            ? await submitComplaintByNavigator(token, navigatorPayload)
+            : await submitComplaintApi(token, createPayload);
 
         await refreshComplaints();
 
@@ -173,7 +185,7 @@ export function useComplaints({
         setComplaintSubmitting(false);
       }
     },
-    [token, complaintForm, refreshComplaints]
+    [token, complaintForm, refreshComplaints, currentUser?.role]
   );
 
   const handleUpdateStatus = useCallback(

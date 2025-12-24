@@ -5,7 +5,6 @@ import type { ComplaintFormState } from "../hooks/useComplaints";
 import {
   districtOptions,
   categoryOptions,
-  disabilityCategoryOptions,
   assistiveDeviceOptions,
   requestTypeOptions,
   issueTypeOptions,
@@ -203,51 +202,6 @@ export function NewCaseModal({
 
               <label className="block space-y-1">
                 <span className="text-sm font-medium text-gray-700">
-                  Primary Disability Category *
-                </span>
-                <select
-                  required
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                  value={complaintForm.primaryDisabilityCategory}
-                  onChange={(e) =>
-                    setComplaintForm((prev) => ({
-                      ...prev,
-                      primaryDisabilityCategory: e.target.value,
-                    }))
-                  }
-                >
-                  <option value="">Choose category</option>
-                  {disabilityCategoryOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              {complaintForm.primaryDisabilityCategory === "other" && (
-                <label className="block space-y-1">
-                  <span className="text-sm font-medium text-gray-700">
-                    Specify Other Disability *
-                  </span>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Please specify the disability"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                    value={complaintForm.otherDisability}
-                    onChange={(e) =>
-                      setComplaintForm((prev) => ({
-                        ...prev,
-                        otherDisability: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-              )}
-
-              <label className="block space-y-1">
-                <span className="text-sm font-medium text-gray-700">
                   Caregiver Phone (Optional)
                 </span>
                 <input
@@ -338,6 +292,27 @@ export function NewCaseModal({
                 </select>
               </label>
             </div>
+
+            {complaintForm.category === "other" && (
+              <label className="block space-y-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Specify Other Category *
+                </span>
+                <input
+                  type="text"
+                  required
+                  placeholder="Please specify the category"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  value={complaintForm.otherCategory}
+                  onChange={(e) =>
+                    setComplaintForm((prev) => ({
+                      ...prev,
+                      otherCategory: e.target.value,
+                    }))
+                  }
+                />
+              </label>
+            )}
 
             {complaintForm.complaintType === "detailed" && (
               <>
@@ -430,24 +405,6 @@ export function NewCaseModal({
                     />
                   </label>
                 )}
-
-                <label className="block space-y-1">
-                  <span className="text-sm font-medium text-gray-700">
-                    What exactly is the person requesting? (Optional)
-                  </span>
-                  <textarea
-                    rows={3}
-                    placeholder="Provide specific details about what the PWD is requesting..."
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                    value={complaintForm.requestDescription}
-                    onChange={(e) =>
-                      setComplaintForm((prev) => ({
-                        ...prev,
-                        requestDescription: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
               </>
             )}
 
@@ -458,7 +415,10 @@ export function NewCaseModal({
                 </span>
                 <div className="grid gap-2 md:grid-cols-2">
                   {issueTypeOptions.map((issue) => (
-                    <label key={issue.value} className="flex items-center gap-2">
+                    <label
+                      key={issue.value}
+                      className="flex items-center gap-2"
+                    >
                       <input
                         type="checkbox"
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -469,11 +429,15 @@ export function NewCaseModal({
                             ...prev,
                             issueTypes: checked
                               ? [...prev.issueTypes, issue.value]
-                              : prev.issueTypes.filter((t) => t !== issue.value),
+                              : prev.issueTypes.filter(
+                                  (t) => t !== issue.value
+                                ),
                           }));
                         }}
                       />
-                      <span className="text-sm text-gray-700">{issue.label}</span>
+                      <span className="text-sm text-gray-700">
+                        {issue.label}
+                      </span>
                     </label>
                   ))}
                 </div>
@@ -545,4 +509,3 @@ export function NewCaseModal({
     </div>
   );
 }
-

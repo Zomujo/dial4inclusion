@@ -123,6 +123,9 @@ export function CaseDetailsModal({
             </p>
             <p className="text-gray-700">
               {formatDisplayText(activeComplaint.category)}
+              {activeComplaint.otherCategory
+                ? `: ${activeComplaint.otherCategory}`
+                : ""}
             </p>
           </div>
 
@@ -152,19 +155,6 @@ export function CaseDetailsModal({
               <p className="text-gray-700">
                 {activeComplaint.gender.charAt(0).toUpperCase() +
                   activeComplaint.gender.slice(1)}
-              </p>
-            </div>
-          )}
-
-          {activeComplaint.primaryDisabilityCategory && (
-            <div>
-              <p className="text-xs uppercase tracking-wide text-gray-500">
-                Disability Category
-              </p>
-              <p className="text-gray-700">
-                {formatDisplayText(activeComplaint.primaryDisabilityCategory)}
-                {activeComplaint.otherDisability &&
-                  `: ${activeComplaint.otherDisability}`}
               </p>
             </div>
           )}
@@ -235,17 +225,6 @@ export function CaseDetailsModal({
                 {formatDisplayText(activeComplaint.requestType)}
                 {activeComplaint.otherRequest &&
                   `: ${activeComplaint.otherRequest}`}
-              </p>
-            </div>
-          )}
-
-          {activeComplaint.requestDescription && (
-            <div>
-              <p className="text-xs uppercase tracking-wide text-gray-500">
-                Request Details
-              </p>
-              <p className="whitespace-pre-line text-gray-700">
-                {activeComplaint.requestDescription}
               </p>
             </div>
           )}
