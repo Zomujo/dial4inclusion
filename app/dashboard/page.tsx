@@ -479,6 +479,24 @@ export default function DashboardPage() {
     }
   };
 
+  const getStatusSelectClassName = (status: ApiComplaint["status"]) => {
+    const baseClassName =
+      "w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20";
+    switch (status) {
+      case "resolved":
+        return `${baseClassName} border-green-300 bg-green-50 text-green-900 focus:border-green-500`;
+      case "in_progress":
+        return `${baseClassName} border-orange-300 bg-orange-50 text-orange-900 focus:border-orange-500`;
+      case "pending":
+        return `${baseClassName} border-yellow-300 bg-yellow-50 text-yellow-900 focus:border-yellow-500`;
+      case "escalated":
+        return `${baseClassName} border-red-300 bg-red-50 text-red-900 focus:border-red-500`;
+      case "rejected":
+      default:
+        return `${baseClassName} border-gray-300 bg-white text-gray-900 focus:border-blue-500`;
+    }
+  };
+
   const formatComplaintDate = (date: string) =>
     new Date(date).toLocaleString(undefined, {
       dateStyle: "medium",
@@ -667,6 +685,343 @@ export default function DashboardPage() {
           <p className="text-gray-600">
             Interactive guide for Navigator training
           </p>
+        </div>
+      )}
+
+      {/* Case Details Modal */}
+      {selectedCase && activeComplaint && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setSelectedCase(null)}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-gray-600">
+                  Case Details
+                </p>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {activeComplaint.id}
+                </h2>
+              </div>
+              <button
+                onClick={() => setSelectedCase(null)}
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  Phone Number
+                </p>
+                <p className="text-gray-900">{activeComplaint.phoneNumber}</p>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  District
+                </p>
+                <p className="text-gray-700">
+                  {activeComplaint.district
+                    ?.replace(/_/g, " ")
+                    .replace(/\b\w/g, (l) => l.toUpperCase()) || "N/A"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  Category
+                </p>
+                <p className="text-gray-700">
+                  {activeComplaint.category
+                    ?.replace(/_/g, " ")
+                    .replace(/\b\w/g, (l) => l.toUpperCase()) || "N/A"}
+                </p>
+              </div>
+
+              {activeComplaint.fullName && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    Full Name
+                  </p>
+                  <p className="text-gray-700">{activeComplaint.fullName}</p>
+                </div>
+              )}
+
+              {activeComplaint.age && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    Age
+                  </p>
+                  <p className="text-gray-700">{activeComplaint.age}</p>
+                </div>
+              )}
+
+              {activeComplaint.gender && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    Gender
+                  </p>
+                  <p className="text-gray-700">
+                    {activeComplaint.gender.charAt(0).toUpperCase() +
+                      activeComplaint.gender.slice(1)}
+                  </p>
+                </div>
+              )}
+
+              {activeComplaint.primaryDisabilityCategory && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    Disability Category
+                  </p>
+                  <p className="text-gray-700">
+                    {activeComplaint.primaryDisabilityCategory
+                      ?.replace(/_/g, " ")
+                      .replace(/\b\w/g, (l) => l.toUpperCase())}
+                    {activeComplaint.otherDisability &&
+                      `: ${activeComplaint.otherDisability}`}
+                  </p>
+                </div>
+              )}
+
+              {activeComplaint.assistiveDevice && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    Assistive Device
+                  </p>
+                  <p className="text-gray-700">
+                    {activeComplaint.assistiveDevice
+                      ?.replace(/_/g, " ")
+                      .replace(/\b\w/g, (l) => l.toUpperCase())}
+                    {activeComplaint.otherAssistiveDevice &&
+                      `: ${activeComplaint.otherAssistiveDevice}`}
+                  </p>
+                </div>
+              )}
+
+              {activeComplaint.caregiverPhoneNumber && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    Caregiver Phone
+                  </p>
+                  <p className="text-gray-700">
+                    {activeComplaint.caregiverPhoneNumber}
+                  </p>
+                </div>
+              )}
+
+              {activeComplaint.language && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    Language
+                  </p>
+                  <p className="text-gray-700">{activeComplaint.language}</p>
+                </div>
+              )}
+
+              {activeComplaint.issueTypes &&
+                activeComplaint.issueTypes.length > 0 && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-500">
+                      Issue Types
+                    </p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {activeComplaint.issueTypes.map((type) => (
+                        <span
+                          key={type}
+                          className="inline-block rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-800"
+                        >
+                          {type
+                            .replace(/_/g, " ")
+                            .replace(/\b\w/g, (l) => l.toUpperCase())}
+                        </span>
+                      ))}
+                    </div>
+                    {activeComplaint.otherIssueType && (
+                      <p className="text-sm text-gray-600 mt-1">
+                        Other: {activeComplaint.otherIssueType}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+              {activeComplaint.requestType && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    Request Type
+                  </p>
+                  <p className="text-gray-700">
+                    {activeComplaint.requestType
+                      ?.replace(/_/g, " ")
+                      .replace(/\b\w/g, (l) => l.toUpperCase())}
+                    {activeComplaint.otherRequest &&
+                      `: ${activeComplaint.otherRequest}`}
+                  </p>
+                </div>
+              )}
+
+              {activeComplaint.requestDescription && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    Request Details
+                  </p>
+                  <p className="text-gray-700 whitespace-pre-line">
+                    {activeComplaint.requestDescription}
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  Description
+                </p>
+                <p className="text-gray-700 whitespace-pre-line">
+                  {activeComplaint.description || "No description provided"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  Created
+                </p>
+                <p className="text-gray-700">
+                  {formatComplaintDate(activeComplaint.createdAt)}
+                </p>
+              </div>
+
+              {activeComplaint.assignedToId && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    {activeComplaint.status === "escalated"
+                      ? "Escalated To"
+                      : "Assigned To"}
+                  </p>
+                  <p className="text-gray-700">
+                    {activeComplaint.assignedToId === currentUser?.id
+                      ? `${currentUser.fullName} (You)`
+                      : districtOfficers.find(
+                          (d) => d.id === activeComplaint.assignedToId
+                        )?.fullName ||
+                        navigators.find(
+                          (n) => n.id === activeComplaint.assignedToId
+                        )?.fullName ||
+                        admins.find(
+                          (a) => a.id === activeComplaint.assignedToId
+                        )?.fullName ||
+                        activeComplaint.assignedTo?.fullName ||
+                        "Unassigned"}
+                  </p>
+                </div>
+              )}
+
+              {activeComplaint.expectedResolutionDate && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    Expected Resolution
+                  </p>
+                  <p className="text-gray-700">
+                    {formatComplaintDate(
+                      activeComplaint.expectedResolutionDate
+                    )}
+                  </p>
+                </div>
+              )}
+
+              {activeComplaint.status === "escalated" &&
+                activeComplaint.escalationReason && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-500">
+                      Escalation Reason
+                    </p>
+                    <p className="text-gray-700 whitespace-pre-line">
+                      {activeComplaint.escalationReason}
+                    </p>
+                  </div>
+                )}
+
+              {lastAction && (
+                <div className="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">
+                  {lastAction.type === "assign"
+                    ? `Assigned to ${lastAction.detail}`
+                    : `Escalated to ${lastAction.detail}`}
+                </div>
+              )}
+
+              <div className="space-y-3 pt-4">
+                {isAdmin && (
+                  <div className="flex gap-2">
+                    <button
+                      className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                      onClick={handleOpenAssignmentModal}
+                    >
+                      Assign
+                    </button>
+                    <button
+                      className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                      onClick={handleOpenEscalationModal}
+                    >
+                      Escalate
+                    </button>
+                  </div>
+                )}
+                {isDistrictOfficer && (
+                  <button
+                    className="w-full rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                    onClick={handleOpenEscalationModal}
+                  >
+                    Escalate to Admin
+                  </button>
+                )}
+                {(isAdmin || isDistrictOfficer) && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Update Status
+                    </label>
+                    <select
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                      value={activeComplaint.status}
+                      onChange={async (e) => {
+                        if (!token) return;
+                        const newStatus = e.target
+                          .value as ApiComplaint["status"];
+                        try {
+                          const complaint = await updateComplaintStatusApi(
+                            token,
+                            activeComplaint.id,
+                            { status: newStatus }
+                          );
+                          setLiveComplaints((prev) =>
+                            prev.map((c) =>
+                              c.id === complaint.id ? complaint : c
+                            )
+                          );
+                          if (isAdmin) refreshStats();
+                        } catch (error) {
+                          console.error("Failed to update status:", error);
+                          alert(
+                            error instanceof Error
+                              ? error.message
+                              : "Failed to update status"
+                          );
+                        }
+                      }}
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="resolved">Resolved</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -890,13 +1245,16 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+            <div>
               {/* Cases Table */}
               <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
                 <div className="border-b border-gray-200 px-6 py-4">
                   <h3 className="font-semibold text-gray-900">Active Cases</h3>
                   <p className="text-sm text-gray-600">
                     {filteredComplaints.length} cases showing
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Click a case row to open details.
                   </p>
                 </div>
                 <div className="max-h-96 overflow-auto">
@@ -963,332 +1321,6 @@ export default function DashboardPage() {
                     </tbody>
                   </table>
                 </div>
-              </div>
-
-              {/* Case Details */}
-              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h3 className="mb-4 font-semibold text-gray-900">
-                  Case Details
-                </h3>
-                {activeComplaint && (
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-gray-500">
-                        Case ID
-                      </p>
-                      <p className="text-lg font-semibold text-gray-900">
-                        {activeComplaint.id}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-gray-500">
-                        Phone Number
-                      </p>
-                      <p className="text-gray-900">
-                        {activeComplaint.phoneNumber}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-gray-500">
-                        District
-                      </p>
-                      <p className="text-gray-700">
-                        {activeComplaint.district
-                          ?.replace(/_/g, " ")
-                          .replace(/\b\w/g, (l) => l.toUpperCase()) || "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-gray-500">
-                        Category
-                      </p>
-                      <p className="text-gray-700">
-                        {activeComplaint.category
-                          ?.replace(/_/g, " ")
-                          .replace(/\b\w/g, (l) => l.toUpperCase()) || "N/A"}
-                      </p>
-                    </div>
-
-                    {/* PWD Personal Information */}
-                    {activeComplaint.fullName && (
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-gray-500">
-                          Full Name
-                        </p>
-                        <p className="text-gray-700">
-                          {activeComplaint.fullName}
-                        </p>
-                      </div>
-                    )}
-                    {activeComplaint.age && (
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-gray-500">
-                          Age
-                        </p>
-                        <p className="text-gray-700">{activeComplaint.age}</p>
-                      </div>
-                    )}
-                    {activeComplaint.gender && (
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-gray-500">
-                          Gender
-                        </p>
-                        <p className="text-gray-700">
-                          {activeComplaint.gender.charAt(0).toUpperCase() +
-                            activeComplaint.gender.slice(1)}
-                        </p>
-                      </div>
-                    )}
-                    {activeComplaint.primaryDisabilityCategory && (
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-gray-500">
-                          Disability Category
-                        </p>
-                        <p className="text-gray-700">
-                          {activeComplaint.primaryDisabilityCategory
-                            ?.replace(/_/g, " ")
-                            .replace(/\b\w/g, (l) => l.toUpperCase())}
-                          {activeComplaint.otherDisability &&
-                            `: ${activeComplaint.otherDisability}`}
-                        </p>
-                      </div>
-                    )}
-                    {activeComplaint.assistiveDevice && (
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-gray-500">
-                          Assistive Device
-                        </p>
-                        <p className="text-gray-700">
-                          {activeComplaint.assistiveDevice
-                            ?.replace(/_/g, " ")
-                            .replace(/\b\w/g, (l) => l.toUpperCase())}
-                          {activeComplaint.otherAssistiveDevice &&
-                            `: ${activeComplaint.otherAssistiveDevice}`}
-                        </p>
-                      </div>
-                    )}
-                    {activeComplaint.caregiverPhoneNumber && (
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-gray-500">
-                          Caregiver Phone
-                        </p>
-                        <p className="text-gray-700">
-                          {activeComplaint.caregiverPhoneNumber}
-                        </p>
-                      </div>
-                    )}
-                    {activeComplaint.language && (
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-gray-500">
-                          Language
-                        </p>
-                        <p className="text-gray-700">
-                          {activeComplaint.language}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Issue Types */}
-                    {activeComplaint.issueTypes &&
-                      activeComplaint.issueTypes.length > 0 && (
-                        <div>
-                          <p className="text-xs uppercase tracking-wide text-gray-500">
-                            Issue Types
-                          </p>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {activeComplaint.issueTypes.map((type) => (
-                              <span
-                                key={type}
-                                className="inline-block rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-800"
-                              >
-                                {type
-                                  .replace(/_/g, " ")
-                                  .replace(/\b\w/g, (l) => l.toUpperCase())}
-                              </span>
-                            ))}
-                          </div>
-                          {activeComplaint.otherIssueType && (
-                            <p className="text-sm text-gray-600 mt-1">
-                              Other: {activeComplaint.otherIssueType}
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                    {/* Request Information */}
-                    {activeComplaint.requestType && (
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-gray-500">
-                          Request Type
-                        </p>
-                        <p className="text-gray-700">
-                          {activeComplaint.requestType
-                            ?.replace(/_/g, " ")
-                            .replace(/\b\w/g, (l) => l.toUpperCase())}
-                          {activeComplaint.otherRequest &&
-                            `: ${activeComplaint.otherRequest}`}
-                        </p>
-                      </div>
-                    )}
-                    {activeComplaint.requestDescription && (
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-gray-500">
-                          Request Details
-                        </p>
-                        <p className="text-gray-700 whitespace-pre-line">
-                          {activeComplaint.requestDescription}
-                        </p>
-                      </div>
-                    )}
-
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-gray-500">
-                        Description
-                      </p>
-                      <p className="text-gray-700 whitespace-pre-line">
-                        {activeComplaint.description ||
-                          "No description provided"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-gray-500">
-                        Created
-                      </p>
-                      <p className="text-gray-700">
-                        {formatComplaintDate(activeComplaint.createdAt)}
-                      </p>
-                    </div>
-                    {activeComplaint.assignedToId && (
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-gray-500">
-                          {activeComplaint.status === "escalated"
-                            ? "Escalated To"
-                            : "Assigned To"}
-                        </p>
-                        <p className="text-gray-700">
-                          {activeComplaint.assignedToId === currentUser?.id
-                            ? `${currentUser.fullName} (You)`
-                            : districtOfficers.find(
-                                (d) => d.id === activeComplaint.assignedToId
-                              )?.fullName ||
-                              navigators.find(
-                                (n) => n.id === activeComplaint.assignedToId
-                              )?.fullName ||
-                              admins.find(
-                                (a) => a.id === activeComplaint.assignedToId
-                              )?.fullName ||
-                              activeComplaint.assignedTo?.fullName ||
-                              "Unassigned"}
-                        </p>
-                      </div>
-                    )}
-                    {activeComplaint.expectedResolutionDate && (
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-gray-500">
-                          Expected Resolution
-                        </p>
-                        <p className="text-gray-700">
-                          {formatComplaintDate(
-                            activeComplaint.expectedResolutionDate
-                          )}
-                        </p>
-                      </div>
-                    )}
-                    {activeComplaint.status === "escalated" &&
-                      activeComplaint.escalationReason && (
-                        <div>
-                          <p className="text-xs uppercase tracking-wide text-gray-500">
-                            Escalation Reason
-                          </p>
-                          <p className="text-gray-700 whitespace-pre-line">
-                            {activeComplaint.escalationReason}
-                          </p>
-                        </div>
-                      )}
-                    {lastAction && (
-                      <div className="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">
-                        {lastAction.type === "assign"
-                          ? `Assigned to ${lastAction.detail}`
-                          : `Escalated to ${lastAction.detail}`}
-                      </div>
-                    )}
-                    <div className="space-y-3 pt-4">
-                      {isAdmin && (
-                        <div className="flex gap-2">
-                          <button
-                            className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                            onClick={handleOpenAssignmentModal}
-                          >
-                            Assign
-                          </button>
-                          <button
-                            className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
-                            onClick={handleOpenEscalationModal}
-                          >
-                            Escalate
-                          </button>
-                        </div>
-                      )}
-                      {isDistrictOfficer && (
-                        <button
-                          className="w-full rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
-                          onClick={handleOpenEscalationModal}
-                        >
-                          Escalate to Admin
-                        </button>
-                      )}
-                      {(isAdmin || isDistrictOfficer) && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Update Status
-                          </label>
-                          <select
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                            value={activeComplaint.status}
-                            onChange={async (e) => {
-                              if (!token) return;
-                              const newStatus = e.target
-                                .value as ApiComplaint["status"];
-                              try {
-                                const complaint =
-                                  await updateComplaintStatusApi(
-                                    token,
-                                    activeComplaint.id,
-                                    {
-                                      status: newStatus,
-                                    }
-                                  );
-                                setLiveComplaints((prev) =>
-                                  prev.map((c) =>
-                                    c.id === complaint.id ? complaint : c
-                                  )
-                                );
-                                if (isAdmin) {
-                                  refreshStats();
-                                }
-                              } catch (error) {
-                                console.error(
-                                  "Failed to update status:",
-                                  error
-                                );
-                                alert(
-                                  error instanceof Error
-                                    ? error.message
-                                    : "Failed to update status"
-                                );
-                              }
-                            }}
-                          >
-                            <option value="pending">Pending</option>
-                            <option value="in_progress">In Progress</option>
-                            <option value="resolved">Resolved</option>
-                            <option value="rejected">Rejected</option>
-                          </select>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -1834,7 +1866,6 @@ export default function DashboardPage() {
                     </span>
                     <input
                       type="tel"
-                      required
                       placeholder="+233551234567"
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                       value={complaintForm.caregiverPhoneNumber}
@@ -2353,6 +2384,401 @@ export default function DashboardPage() {
                 >
                   {escalating ? "Escalating..." : "Escalate"}
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Case Details Modal */}
+      {selectedCase && activeComplaint && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setSelectedCase(null)}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-gray-600">
+                  Case Details
+                </p>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {activeComplaint.id}
+                </h2>
+              </div>
+              <button
+                onClick={() => setSelectedCase(null)}
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  Phone Number
+                </p>
+                <p className="text-gray-900">{activeComplaint.phoneNumber}</p>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  District
+                </p>
+                <p className="text-gray-700">
+                  {activeComplaint.district
+                    ?.replace(/_/g, " ")
+                    .replace(/\b\w/g, (l) => l.toUpperCase()) || "N/A"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  Category
+                </p>
+                <p className="text-gray-700">
+                  {activeComplaint.category
+                    ?.replace(/_/g, " ")
+                    .replace(/\b\w/g, (l) => l.toUpperCase()) || "N/A"}
+                </p>
+              </div>
+
+              {activeComplaint.fullName && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    Full Name
+                  </p>
+                  <p className="text-gray-700">{activeComplaint.fullName}</p>
+                </div>
+              )}
+
+              {activeComplaint.age && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    Age
+                  </p>
+                  <p className="text-gray-700">{activeComplaint.age}</p>
+                </div>
+              )}
+
+              {activeComplaint.gender && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    Gender
+                  </p>
+                  <p className="text-gray-700">
+                    {activeComplaint.gender.charAt(0).toUpperCase() +
+                      activeComplaint.gender.slice(1)}
+                  </p>
+                </div>
+              )}
+
+              {activeComplaint.primaryDisabilityCategory && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    Disability Category
+                  </p>
+                  <p className="text-gray-700">
+                    {activeComplaint.primaryDisabilityCategory
+                      ?.replace(/_/g, " ")
+                      .replace(/\b\w/g, (l) => l.toUpperCase())}
+                    {activeComplaint.otherDisability &&
+                      `: ${activeComplaint.otherDisability}`}
+                  </p>
+                </div>
+              )}
+
+              {activeComplaint.assistiveDevice && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    Assistive Device
+                  </p>
+                  <p className="text-gray-700">
+                    {activeComplaint.assistiveDevice
+                      ?.replace(/_/g, " ")
+                      .replace(/\b\w/g, (l) => l.toUpperCase())}
+                    {activeComplaint.otherAssistiveDevice &&
+                      `: ${activeComplaint.otherAssistiveDevice}`}
+                  </p>
+                </div>
+              )}
+
+              {activeComplaint.caregiverPhoneNumber && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    Caregiver Phone
+                  </p>
+                  <p className="text-gray-700">
+                    {activeComplaint.caregiverPhoneNumber}
+                  </p>
+                </div>
+              )}
+
+              {activeComplaint.language && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    Language
+                  </p>
+                  <p className="text-gray-700">{activeComplaint.language}</p>
+                </div>
+              )}
+
+              {activeComplaint.issueTypes &&
+                activeComplaint.issueTypes.length > 0 && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-500">
+                      Issue Types
+                    </p>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {activeComplaint.issueTypes.map((type) => (
+                        <span
+                          key={type}
+                          className="inline-block rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-800"
+                        >
+                          {type
+                            .replace(/_/g, " ")
+                            .replace(/\b\w/g, (l) => l.toUpperCase())}
+                        </span>
+                      ))}
+                    </div>
+                    {activeComplaint.otherIssueType && (
+                      <p className="mt-1 text-sm text-gray-600">
+                        Other: {activeComplaint.otherIssueType}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+              {activeComplaint.requestType && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    Request Type
+                  </p>
+                  <p className="text-gray-700">
+                    {activeComplaint.requestType
+                      ?.replace(/_/g, " ")
+                      .replace(/\b\w/g, (l) => l.toUpperCase())}
+                    {activeComplaint.otherRequest &&
+                      `: ${activeComplaint.otherRequest}`}
+                  </p>
+                </div>
+              )}
+
+              {activeComplaint.requestDescription && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    Request Details
+                  </p>
+                  <p className="whitespace-pre-line text-gray-700">
+                    {activeComplaint.requestDescription}
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  Description
+                </p>
+                <p className="whitespace-pre-line text-gray-700">
+                  {activeComplaint.description || "No description provided"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  Created
+                </p>
+                <p className="text-gray-700">
+                  {formatComplaintDate(activeComplaint.createdAt)}
+                </p>
+              </div>
+
+              {activeComplaint.assignedToId && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    {activeComplaint.status === "escalated"
+                      ? "Escalated To"
+                      : "Assigned To"}
+                  </p>
+                  <p className="text-gray-700">
+                    {activeComplaint.assignedToId === currentUser?.id
+                      ? `${currentUser.fullName} (You)`
+                      : districtOfficers.find(
+                          (d) => d.id === activeComplaint.assignedToId
+                        )?.fullName ||
+                        navigators.find(
+                          (n) => n.id === activeComplaint.assignedToId
+                        )?.fullName ||
+                        admins.find(
+                          (a) => a.id === activeComplaint.assignedToId
+                        )?.fullName ||
+                        activeComplaint.assignedTo?.fullName ||
+                        "Unassigned"}
+                  </p>
+                </div>
+              )}
+
+              {activeComplaint.expectedResolutionDate && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    Expected Resolution
+                  </p>
+                  <p className="text-gray-700">
+                    {formatComplaintDate(
+                      activeComplaint.expectedResolutionDate
+                    )}
+                  </p>
+                </div>
+              )}
+
+              {activeComplaint.status === "escalated" &&
+                activeComplaint.escalationReason && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-500">
+                      Escalation Reason
+                    </p>
+                    <p className="whitespace-pre-line text-gray-700">
+                      {activeComplaint.escalationReason}
+                    </p>
+                  </div>
+                )}
+
+              {lastAction && (
+                <div className="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">
+                  {lastAction.type === "assign"
+                    ? `Assigned to ${lastAction.detail}`
+                    : `Escalated to ${lastAction.detail}`}
+                </div>
+              )}
+
+              <div className="space-y-3 pt-4">
+                {isAdmin && (
+                  <div className="flex gap-2">
+                    <button
+                      className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                      onClick={handleOpenAssignmentModal}
+                    >
+                      Assign
+                    </button>
+                    {activeComplaint.status !== "resolved" && (
+                      <button
+                        className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                        onClick={handleOpenEscalationModal}
+                      >
+                        Escalate
+                      </button>
+                    )}
+                  </div>
+                )}
+                {isDistrictOfficer ? (
+                  <div className="flex items-end gap-3">
+                    {activeComplaint.status !== "resolved" && (
+                      <button
+                        className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                        onClick={handleOpenEscalationModal}
+                      >
+                        Escalate to Admin
+                      </button>
+                    )}
+                    <div className="flex-1">
+                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                        Update Status
+                      </label>
+                      <select
+                        className={getStatusSelectClassName(
+                          activeComplaint.status
+                        )}
+                        value={activeComplaint.status}
+                        onChange={async (e) => {
+                          if (!token) return;
+                          const newStatus = e.target
+                            .value as ApiComplaint["status"];
+                          try {
+                            const complaint = await updateComplaintStatusApi(
+                              token,
+                              activeComplaint.id,
+                              {
+                                status: newStatus,
+                              }
+                            );
+                            setLiveComplaints((prev) =>
+                              prev.map((c) =>
+                                c.id === complaint.id ? complaint : c
+                              )
+                            );
+                            if (isAdmin) {
+                              refreshStats();
+                            }
+                          } catch (error) {
+                            console.error("Failed to update status:", error);
+                            alert(
+                              error instanceof Error
+                                ? error.message
+                                : "Failed to update status"
+                            );
+                          }
+                        }}
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="resolved">Resolved</option>
+                        <option value="rejected">Rejected</option>
+                      </select>
+                    </div>
+                  </div>
+                ) : (
+                  (isAdmin || isDistrictOfficer) && (
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                        Update Status
+                      </label>
+                      <select
+                        className={getStatusSelectClassName(
+                          activeComplaint.status
+                        )}
+                        value={activeComplaint.status}
+                        onChange={async (e) => {
+                          if (!token) return;
+                          const newStatus = e.target
+                            .value as ApiComplaint["status"];
+                          try {
+                            const complaint = await updateComplaintStatusApi(
+                              token,
+                              activeComplaint.id,
+                              {
+                                status: newStatus,
+                              }
+                            );
+                            setLiveComplaints((prev) =>
+                              prev.map((c) =>
+                                c.id === complaint.id ? complaint : c
+                              )
+                            );
+                            if (isAdmin) {
+                              refreshStats();
+                            }
+                          } catch (error) {
+                            console.error("Failed to update status:", error);
+                            alert(
+                              error instanceof Error
+                                ? error.message
+                                : "Failed to update status"
+                            );
+                          }
+                        }}
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="resolved">Resolved</option>
+                        <option value="rejected">Rejected</option>
+                      </select>
+                    </div>
+                  )
+                )}
               </div>
             </div>
           </div>
