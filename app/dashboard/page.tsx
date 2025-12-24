@@ -71,6 +71,7 @@ export default function DashboardPage() {
     updateComplaintInList,
     resetComplaintForm,
     creatorLoadingIds,
+    assignedLoadingIds,
   } = useComplaints({
     token,
     currentUser,
@@ -360,6 +361,7 @@ export default function DashboardPage() {
           navigators={navigators}
           admins={admins}
           creatorLoadingIds={creatorLoadingIds}
+          assignedLoadingIds={assignedLoadingIds}
           lastAction={lastAction}
           statusUpdateFeedback={statusUpdateFeedback}
           statusUpdatingId={statusUpdatingId}

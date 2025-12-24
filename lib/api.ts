@@ -191,10 +191,7 @@ export async function getComplaint(
   return response.data;
 }
 
-export async function getUser(
-  token: string,
-  id: string
-): Promise<ApiUser> {
+export async function getUser(token: string, id: string): Promise<ApiUser> {
   const response = await apiFetch<{ data: ApiUser }>(`/users/${id}`, {
     method: "GET",
     token,
@@ -258,7 +255,9 @@ export async function getDistrictOfficers(
 ): Promise<{
   rows: ApiUser[];
 }> {
-  const qs = district ? `?role=district_officer&district=${encodeURIComponent(district)}` : `?role=district_officer`;
+  const qs = district
+    ? `?role=district_officer&district=${encodeURIComponent(district)}`
+    : `?role=district_officer`;
   const response = await apiFetch<{
     data: { rows: ApiUser[] };
   }>(`/users${qs}`, {

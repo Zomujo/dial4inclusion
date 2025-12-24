@@ -19,10 +19,14 @@ interface CaseDetailsModalProps {
   statusUpdateFeedback: { kind: "success" | "error"; message: string } | null;
   statusUpdatingId: string | null;
   creatorLoadingIds: Record<string, boolean>;
+  assignedLoadingIds: Record<string, boolean>;
   onClose: () => void;
   onOpenAssignmentModal: () => void;
   onOpenEscalationModal: () => void;
-  onUpdateStatus: (complaintId: string, newStatus: ApiComplaint["status"]) => void;
+  onUpdateStatus: (
+    complaintId: string,
+    newStatus: ApiComplaint["status"]
+  ) => void;
 }
 
 export function CaseDetailsModal({
@@ -37,6 +41,7 @@ export function CaseDetailsModal({
   statusUpdateFeedback,
   statusUpdatingId,
   creatorLoadingIds,
+  assignedLoadingIds,
   onClose,
   onOpenAssignmentModal,
   onOpenEscalationModal,
@@ -197,28 +202,29 @@ export function CaseDetailsModal({
             </div>
           )}
 
-          {activeComplaint.issueTypes && activeComplaint.issueTypes.length > 0 && (
-            <div>
-              <p className="text-xs uppercase tracking-wide text-gray-500">
-                Issue Types
-              </p>
-              <div className="mt-1 flex flex-wrap gap-1">
-                {activeComplaint.issueTypes.map((type) => (
-                  <span
-                    key={type}
-                    className="inline-block rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-800"
-                  >
-                    {formatDisplayText(type)}
-                  </span>
-                ))}
-              </div>
-              {activeComplaint.otherIssueType && (
-                <p className="mt-1 text-sm text-gray-600">
-                  Other: {activeComplaint.otherIssueType}
+          {activeComplaint.issueTypes &&
+            activeComplaint.issueTypes.length > 0 && (
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  Issue Types
                 </p>
-              )}
-            </div>
-          )}
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {activeComplaint.issueTypes.map((type) => (
+                    <span
+                      key={type}
+                      className="inline-block rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-800"
+                    >
+                      {formatDisplayText(type)}
+                    </span>
+                  ))}
+                </div>
+                {activeComplaint.otherIssueType && (
+                  <p className="mt-1 text-sm text-gray-600">
+                    Other: {activeComplaint.otherIssueType}
+                  </p>
+                )}
+              </div>
+            )}
 
           {activeComplaint.requestType && (
             <div>
@@ -262,14 +268,13 @@ export function CaseDetailsModal({
             </p>
           </div>
 
-          {activeComplaint.createdById && (
+          {activeComplaint.createdById && !isDistrictOfficer && (
             <div>
               <p className="text-xs uppercase tracking-wide text-gray-500">
                 Created By
               </p>
               <p className="text-gray-700">
-                {activeComplaint.createdById &&
-                creatorLoadingIds?.[activeComplaint.createdById]
+                {creatorLoadingIds?.[activeComplaint.createdById]
                   ? "Loading..."
                   : getCreatedByName()}
               </p>
@@ -283,7 +288,12 @@ export function CaseDetailsModal({
                   ? "Escalated To"
                   : "Assigned To"}
               </p>
-              <p className="text-gray-700">{getAssignedToName()}</p>
+              <p className="text-gray-700">
+                {activeComplaint.assignedToId &&
+                assignedLoadingIds?.[activeComplaint.assignedToId]
+                  ? "Loading..."
+                  : getAssignedToName()}
+              </p>
             </div>
           )}
 
@@ -372,7 +382,8 @@ export function CaseDetailsModal({
                     value={activeComplaint.status}
                     disabled={statusUpdatingId === activeComplaint.id}
                     onChange={(e) => {
-                      const newStatus = e.target.value as ApiComplaint["status"];
+                      const newStatus = e.target
+                        .value as ApiComplaint["status"];
                       onUpdateStatus(activeComplaint.id, newStatus);
                     }}
                   >
@@ -394,7 +405,8 @@ export function CaseDetailsModal({
                     value={activeComplaint.status}
                     disabled={statusUpdatingId === activeComplaint.id}
                     onChange={(e) => {
-                      const newStatus = e.target.value as ApiComplaint["status"];
+                      const newStatus = e.target
+                        .value as ApiComplaint["status"];
                       onUpdateStatus(activeComplaint.id, newStatus);
                     }}
                   >
@@ -412,4 +424,3 @@ export function CaseDetailsModal({
     </div>
   );
 }
-

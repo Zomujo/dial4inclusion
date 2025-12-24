@@ -38,7 +38,9 @@ export function useAssignment({
 
   const eligibleDistrictOfficers = useMemo(() => {
     if (!complaintDistrict) return districtOfficers;
-    const filtered = districtOfficers.filter((o) => o.district === complaintDistrict);
+    const filtered = districtOfficers.filter(
+      (o) => o.district === complaintDistrict
+    );
     console.log(
       "useAssignment: complaintDistrict=",
       complaintDistrict,
@@ -46,7 +48,11 @@ export function useAssignment({
       districtOfficers.length,
       "eligible.count=",
       filtered.length,
-      filtered.map((o) => ({ id: o.id, fullName: o.fullName, district: o.district }))
+      filtered.map((o) => ({
+        id: o.id,
+        fullName: o.fullName,
+        district: o.district,
+      }))
     );
     return filtered;
   }, [districtOfficers, complaintDistrict]);
@@ -63,10 +69,17 @@ export function useAssignment({
   const fetchDistrictOfficers = useCallback(async () => {
     if (!token) return;
     // allow admin and district officers to fetch (service applies filtering)
-    if (currentUser?.role !== "admin" && currentUser?.role !== "district_officer") return;
+    if (
+      currentUser?.role !== "admin" &&
+      currentUser?.role !== "district_officer"
+    )
+      return;
     setDistrictOfficersLoading(true);
     try {
-      const response = await getDistrictOfficers(token, complaintDistrict ?? undefined);
+      const response = await getDistrictOfficers(
+        token,
+        complaintDistrict ?? undefined
+      );
       console.log(
         "useAssignment.fetchDistrictOfficers: fetched",
         (response.rows || []).length,

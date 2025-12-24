@@ -10,7 +10,10 @@ import {
   type ApiComplaint,
   type ApiUser,
 } from "@/lib/api";
-import { getStatusLabel, getFriendlyStatusUpdateError } from "../utils/formatters";
+import {
+  getStatusLabel,
+  getFriendlyStatusUpdateError,
+} from "../utils/formatters";
 
 export interface ComplaintFormState {
   fullName: string;
@@ -64,11 +67,16 @@ interface UseComplaintsOptions {
   onStatsRefresh?: () => void;
 }
 
-export function useComplaints({ token, currentUser, onStatsRefresh }: UseComplaintsOptions) {
+export function useComplaints({
+  token,
+  currentUser,
+  onStatsRefresh,
+}: UseComplaintsOptions) {
   const [liveComplaints, setLiveComplaints] = useState<ApiComplaint[]>([]);
   const [complaintsLoading, setComplaintsLoading] = useState(false);
   const [complaintsError, setComplaintsError] = useState<string | null>(null);
-  const [complaintForm, setComplaintForm] = useState<ComplaintFormState>(initialFormState);
+  const [complaintForm, setComplaintForm] =
+    useState<ComplaintFormState>(initialFormState);
   const [complaintSubmitting, setComplaintSubmitting] = useState(false);
   const [complaintStatus, setComplaintStatus] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("All statuses");
@@ -82,7 +90,12 @@ export function useComplaints({ token, currentUser, onStatsRefresh }: UseComplai
     type: "assign" | "escalate";
     detail: string;
   } | null>(null);
-  const [creatorLoadingIds, setCreatorLoadingIds] = useState<Record<string, boolean>>({});
+  const [creatorLoadingIds, setCreatorLoadingIds] = useState<
+    Record<string, boolean>
+  >({});
+  const [assignedLoadingIds, setAssignedLoadingIds] = useState<
+    Record<string, boolean>
+  >({});
 
   const refreshComplaints = useCallback(async () => {
     if (!token) return;
@@ -203,7 +216,9 @@ export function useComplaints({ token, currentUser, onStatsRefresh }: UseComplai
       setStatusUpdateFeedback(null);
 
       setLiveComplaints((prev) =>
-        prev.map((c) => (c.id === complaintId ? { ...c, status: newStatus } : c))
+        prev.map((c) =>
+          c.id === complaintId ? { ...c, status: newStatus } : c
+        )
       );
 
       try {
@@ -272,7 +287,9 @@ export function useComplaints({ token, currentUser, onStatsRefresh }: UseComplai
 
     // Navigators should only see complaints they created
     if (currentUser?.role === "navigator") {
-      complaints = liveComplaints.filter((c) => c.createdById === currentUser.id);
+      complaints = liveComplaints.filter(
+        (c) => c.createdById === currentUser.id
+      );
     }
 
     if (statusFilter === "All statuses") {
@@ -304,12 +321,19 @@ export function useComplaints({ token, currentUser, onStatsRefresh }: UseComplai
 
       if (!token) return;
 
+      const canFetchUsersById =
+        currentUser?.role === "admin" || currentUser?.role === "navigator";
+
       try {
         const full = await getComplaint(token, id);
         let merged = { ...full } as ApiComplaint;
 
         // If backend didn't include related `createdBy`, try fetching the user directly
-        if (full.createdById && !full.createdBy?.fullName) {
+        if (
+          canFetchUsersById &&
+          full.createdById &&
+          !full.createdBy?.fullName
+        ) {
           setCreatorLoadingIds((s) => ({ ...s, [full.createdById!]: true }));
           try {
             const user = await getUser(token, full.createdById);
@@ -321,14 +345,36 @@ export function useComplaints({ token, currentUser, onStatsRefresh }: UseComplai
           }
         }
 
+        // If backend didn't include related `assignedTo`, try fetching that user too
+        if (
+          canFetchUsersById &&
+          full.assignedToId &&
+          !full.assignedTo?.fullName
+        ) {
+          setAssignedLoadingIds((s) => ({ ...s, [full.assignedToId!]: true }));
+          try {
+            const user = await getUser(token, full.assignedToId);
+            merged = { ...merged, assignedTo: user };
+          } catch (err) {
+            // ignore — we'll fall back to local lists or 'Unassigned'
+          } finally {
+            setAssignedLoadingIds((s) => ({
+              ...s,
+              [full.assignedToId!]: false,
+            }));
+          }
+        }
+
         setLiveComplaints((prev) =>
           prev.map((c) => (c.id === id ? { ...c, ...merged } : c))
         );
       } catch (error) {
-        setComplaintsError(error instanceof Error ? error.message : "Failed to load case details");
+        setComplaintsError(
+          error instanceof Error ? error.message : "Failed to load case details"
+        );
       }
     },
-    [token]
+    [token, currentUser?.role]
   );
 
   const closeCaseDetailsModal = useCallback(() => {
@@ -381,6 +427,6 @@ export function useComplaints({ token, currentUser, onStatsRefresh }: UseComplai
     updateComplaintInList,
     resetComplaintForm,
     creatorLoadingIds,
+    assignedLoadingIds,
   };
 }
-
