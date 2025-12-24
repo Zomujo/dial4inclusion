@@ -96,6 +96,11 @@ export default function DashboardPage() {
     type: "assign" | "escalate";
     detail: string;
   } | null>(null);
+  const [statusUpdateFeedback, setStatusUpdateFeedback] = useState<{
+    kind: "success" | "error";
+    message: string;
+  } | null>(null);
+  const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const [monitoringStats, setMonitoringStats] = useState<{
@@ -374,6 +379,129 @@ export default function DashboardPage() {
     }
   };
 
+  const getStatusLabel = (status?: ApiComplaint["status"] | null) => {
+    switch (status) {
+      case "pending":
+        return "Pending";
+      case "in_progress":
+        return "In Progress";
+      case "resolved":
+        return "Resolved";
+      case "rejected":
+        return "Rejected";
+      case "escalated":
+        return "Escalated";
+      default:
+        return "Unknown";
+    }
+  };
+
+  const getFriendlyStatusUpdateError = (error: unknown) => {
+    const message =
+      error instanceof Error
+        ? error.message
+        : typeof error === "string"
+        ? error
+        : "Failed to update status";
+    const normalized = message.toLowerCase().replace(/\s+/g, "");
+    if (normalized.includes("cannotchangeunassignedcomplaint")) {
+      return "You can’t change the status until the case is assigned. Assign it first.";
+    }
+    return message;
+  };
+
+  const handleUpdateStatus = async (
+    complaintId: string,
+    newStatus: ApiComplaint["status"]
+  ) => {
+    if (!token) {
+      setStatusUpdateFeedback({
+        kind: "error",
+        message: "Session expired. Please sign in again.",
+      });
+      return;
+    }
+
+    const current = liveComplaints.find((c) => c.id === complaintId);
+    if (!current) {
+      setStatusUpdateFeedback({
+        kind: "error",
+        message: "This case is no longer available. Please refresh.",
+      });
+      return;
+    }
+
+    if (
+      currentUser?.role === "district_officer" &&
+      current.assignedToId &&
+      current.assignedToId !== currentUser.id
+    ) {
+      setStatusUpdateFeedback({
+        kind: "error",
+        message: "You can only change the status of cases assigned to you.",
+      });
+      return;
+    }
+
+    if (currentUser?.role === "district_officer" && !current.assignedToId) {
+      setStatusUpdateFeedback({
+        kind: "error",
+        message: "You can’t change the status until the case is assigned.",
+      });
+      return;
+    }
+
+    if (current.status === newStatus) return;
+
+    const previousStatus = current.status;
+    setStatusUpdatingId(complaintId);
+    setStatusUpdateFeedback(null);
+
+    // Optimistic UI update so the user sees immediate feedback.
+    setLiveComplaints((prev) =>
+      prev.map((c) => (c.id === complaintId ? { ...c, status: newStatus } : c))
+    );
+
+    try {
+      const updated = await updateComplaintStatusApi(token, complaintId, {
+        status: newStatus,
+      });
+      const finalStatus = updated?.status ?? newStatus;
+      setLiveComplaints((prev) =>
+        prev.map((c) =>
+          c.id === complaintId
+            ? {
+                ...c,
+                ...updated,
+                id: c.id,
+                status: finalStatus,
+              }
+            : c
+        )
+      );
+      setStatusUpdateFeedback({
+        kind: "success",
+        message: `Status updated to ${getStatusLabel(finalStatus)}.`,
+      });
+      if (currentUser?.role === "admin") {
+        refreshStats();
+      }
+    } catch (error) {
+      // Roll back optimistic update.
+      setLiveComplaints((prev) =>
+        prev.map((c) =>
+          c.id === complaintId ? { ...c, status: previousStatus } : c
+        )
+      );
+      setStatusUpdateFeedback({
+        kind: "error",
+        message: getFriendlyStatusUpdateError(error),
+      });
+    } finally {
+      setStatusUpdatingId(null);
+    }
+  };
+
   const handleLogout = () => {
     clearAuth();
     router.replace("/");
@@ -516,16 +644,20 @@ export default function DashboardPage() {
     // For now, navigators see all complaints from their district (backend filtering)
 
     // For district officers: show only complaints assigned to them
-    // TODO: Uncomment below once backend properly assigns complaints to district officers
-    // Currently showing ALL cases for district officers until backend is ready
-    const complaints = liveComplaints;
-    // if (currentUser?.role === "district_officer") {
-    //   complaints = liveComplaints.filter(
-    //     (c) =>
-    //       c.assignedToId === currentUser.id &&
-    //       c.district === currentUser.district
-    //   );
-    // }
+    let complaints = liveComplaints;
+    if (currentUser?.role === "district_officer") {
+      complaints = liveComplaints.filter((c) => {
+        if (c.assignedToId !== currentUser.id) return false;
+        // Some backends may omit district on the user; only enforce if available.
+        if (
+          currentUser.district &&
+          c.district &&
+          c.district !== currentUser.district
+        )
+          return false;
+        return true;
+      });
+    }
 
     // Then apply status filter
     if (statusFilter === "All statuses") {
@@ -543,16 +675,28 @@ export default function DashboardPage() {
     const backendStatus = statusMap[statusFilter];
     if (!backendStatus) return complaints;
     return complaints.filter((c) => c.status === backendStatus);
-  }, [liveComplaints, statusFilter]);
+  }, [liveComplaints, statusFilter, currentUser]);
 
-  const activeComplaint =
-    filteredComplaints.find((c) => c.id === selectedCase) ??
-    filteredComplaints[0] ??
-    null;
+  const activeComplaint = selectedCase
+    ? liveComplaints.find((c) => c.id === selectedCase) ?? null
+    : filteredComplaints[0] ?? null;
 
   const handleSelect = (id: string) => {
     setSelectedCase(id);
     setLastAction(null);
+    setStatusUpdateFeedback(null);
+    setAssignmentModal(false);
+    setEscalationModal(false);
+    setAssignee("");
+    setExpectedResolutionDate("");
+    setTargetAdmin("");
+    setEscalationReason("");
+  };
+
+  const closeCaseDetailsModal = () => {
+    setSelectedCase(null);
+    setLastAction(null);
+    setStatusUpdateFeedback(null);
     setAssignmentModal(false);
     setEscalationModal(false);
     setAssignee("");
@@ -692,7 +836,7 @@ export default function DashboardPage() {
       {selectedCase && activeComplaint && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onClick={() => setSelectedCase(null)}
+          onClick={closeCaseDetailsModal}
         >
           <div
             className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
@@ -708,13 +852,12 @@ export default function DashboardPage() {
                 </h2>
               </div>
               <button
-                onClick={() => setSelectedCase(null)}
+                onClick={closeCaseDetailsModal}
                 className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
               >
                 ✕
               </button>
             </div>
-
             <div className="space-y-4">
               <div>
                 <p className="text-xs uppercase tracking-wide text-gray-500">
@@ -953,6 +1096,38 @@ export default function DashboardPage() {
                 </div>
               )}
 
+              {statusUpdateFeedback && (
+                <div
+                  className={`rounded-lg px-3 py-2 text-sm ${
+                    statusUpdateFeedback.kind === "success"
+                      ? "bg-green-50 text-green-800"
+                      : "bg-red-50 text-red-800"
+                  }`}
+                >
+                  {statusUpdateFeedback.message}
+                </div>
+              )}
+
+              {statusUpdatingId === activeComplaint.id && (
+                <div className="text-xs text-gray-500">Updating status…</div>
+              )}
+
+              {statusUpdateFeedback && (
+                <div
+                  className={`rounded-lg px-3 py-2 text-sm ${
+                    statusUpdateFeedback.kind === "success"
+                      ? "bg-green-50 text-green-800"
+                      : "bg-red-50 text-red-800"
+                  }`}
+                >
+                  {statusUpdateFeedback.message}
+                </div>
+              )}
+
+              {statusUpdatingId === activeComplaint.id && (
+                <div className="text-xs text-gray-500">Updating status…</div>
+              )}
+
               <div className="space-y-3 pt-4">
                 {isAdmin && (
                   <div className="flex gap-2">
@@ -962,15 +1137,17 @@ export default function DashboardPage() {
                     >
                       Assign
                     </button>
-                    <button
-                      className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
-                      onClick={handleOpenEscalationModal}
-                    >
-                      Escalate
-                    </button>
+                    {activeComplaint.status !== "resolved" && (
+                      <button
+                        className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                        onClick={handleOpenEscalationModal}
+                      >
+                        Escalate
+                      </button>
+                    )}
                   </div>
                 )}
-                {isDistrictOfficer && (
+                {isDistrictOfficer && activeComplaint.status !== "resolved" && (
                   <button
                     className="w-full rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
                     onClick={handleOpenEscalationModal}
@@ -984,32 +1161,15 @@ export default function DashboardPage() {
                       Update Status
                     </label>
                     <select
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                      className={getStatusSelectClassName(
+                        activeComplaint.status
+                      )}
                       value={activeComplaint.status}
-                      onChange={async (e) => {
-                        if (!token) return;
+                      disabled={statusUpdatingId === activeComplaint.id}
+                      onChange={(e) => {
                         const newStatus = e.target
                           .value as ApiComplaint["status"];
-                        try {
-                          const complaint = await updateComplaintStatusApi(
-                            token,
-                            activeComplaint.id,
-                            { status: newStatus }
-                          );
-                          setLiveComplaints((prev) =>
-                            prev.map((c) =>
-                              c.id === complaint.id ? complaint : c
-                            )
-                          );
-                          if (isAdmin) refreshStats();
-                        } catch (error) {
-                          console.error("Failed to update status:", error);
-                          alert(
-                            error instanceof Error
-                              ? error.message
-                              : "Failed to update status"
-                          );
-                        }
+                        handleUpdateStatus(activeComplaint.id, newStatus);
                       }}
                     >
                       <option value="pending">Pending</option>
@@ -1163,38 +1323,16 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex items-center gap-3">
                           <select
-                            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+                            className={getStatusSelectClassName(
+                              complaint.status
+                            )}
                             value={complaint.status}
-                            onChange={async (e) => {
+                            disabled={statusUpdatingId === complaint.id}
+                            onChange={(e) => {
                               e.stopPropagation();
-                              if (!token) return;
                               const newStatus = e.target
                                 .value as ApiComplaint["status"];
-                              try {
-                                const updated = await updateComplaintStatusApi(
-                                  token,
-                                  complaint.id,
-                                  {
-                                    status: newStatus,
-                                  }
-                                );
-                                setLiveComplaints((prev) =>
-                                  prev.map((c) =>
-                                    c.id === updated.id ? updated : c
-                                  )
-                                );
-                                refreshStats();
-                              } catch (error) {
-                                console.error(
-                                  "Failed to update status:",
-                                  error
-                                );
-                                alert(
-                                  error instanceof Error
-                                    ? error.message
-                                    : "Failed to update status"
-                                );
-                              }
+                              handleUpdateStatus(complaint.id, newStatus);
                             }}
                             onClick={(e) => e.stopPropagation()}
                           >
@@ -2394,7 +2532,7 @@ export default function DashboardPage() {
       {selectedCase && activeComplaint && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onClick={() => setSelectedCase(null)}
+          onClick={closeCaseDetailsModal}
         >
           <div
             className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
@@ -2410,7 +2548,7 @@ export default function DashboardPage() {
                 </h2>
               </div>
               <button
-                onClick={() => setSelectedCase(null)}
+                onClick={closeCaseDetailsModal}
                 className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
               >
                 ✕
@@ -2655,6 +2793,22 @@ export default function DashboardPage() {
                 </div>
               )}
 
+              {statusUpdateFeedback && (
+                <div
+                  className={`rounded-lg px-3 py-2 text-sm ${
+                    statusUpdateFeedback.kind === "success"
+                      ? "bg-green-50 text-green-800"
+                      : "bg-red-50 text-red-800"
+                  }`}
+                >
+                  {statusUpdateFeedback.message}
+                </div>
+              )}
+
+              {statusUpdatingId === activeComplaint.id && (
+                <div className="text-xs text-gray-500">Updating status…</div>
+              )}
+
               <div className="space-y-3 pt-4">
                 {isAdmin && (
                   <div className="flex gap-2">
@@ -2693,34 +2847,11 @@ export default function DashboardPage() {
                           activeComplaint.status
                         )}
                         value={activeComplaint.status}
-                        onChange={async (e) => {
-                          if (!token) return;
+                        disabled={statusUpdatingId === activeComplaint.id}
+                        onChange={(e) => {
                           const newStatus = e.target
                             .value as ApiComplaint["status"];
-                          try {
-                            const complaint = await updateComplaintStatusApi(
-                              token,
-                              activeComplaint.id,
-                              {
-                                status: newStatus,
-                              }
-                            );
-                            setLiveComplaints((prev) =>
-                              prev.map((c) =>
-                                c.id === complaint.id ? complaint : c
-                              )
-                            );
-                            if (isAdmin) {
-                              refreshStats();
-                            }
-                          } catch (error) {
-                            console.error("Failed to update status:", error);
-                            alert(
-                              error instanceof Error
-                                ? error.message
-                                : "Failed to update status"
-                            );
-                          }
+                          handleUpdateStatus(activeComplaint.id, newStatus);
                         }}
                       >
                         <option value="pending">Pending</option>
@@ -2741,34 +2872,11 @@ export default function DashboardPage() {
                           activeComplaint.status
                         )}
                         value={activeComplaint.status}
-                        onChange={async (e) => {
-                          if (!token) return;
+                        disabled={statusUpdatingId === activeComplaint.id}
+                        onChange={(e) => {
                           const newStatus = e.target
                             .value as ApiComplaint["status"];
-                          try {
-                            const complaint = await updateComplaintStatusApi(
-                              token,
-                              activeComplaint.id,
-                              {
-                                status: newStatus,
-                              }
-                            );
-                            setLiveComplaints((prev) =>
-                              prev.map((c) =>
-                                c.id === complaint.id ? complaint : c
-                              )
-                            );
-                            if (isAdmin) {
-                              refreshStats();
-                            }
-                          } catch (error) {
-                            console.error("Failed to update status:", error);
-                            alert(
-                              error instanceof Error
-                                ? error.message
-                                : "Failed to update status"
-                            );
-                          }
+                          handleUpdateStatus(activeComplaint.id, newStatus);
                         }}
                       >
                         <option value="pending">Pending</option>
