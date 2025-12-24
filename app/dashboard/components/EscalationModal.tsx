@@ -28,6 +28,7 @@ export function EscalationModal({
   errorMessage,
   onClearError,
   onEscalate,
+  onRefreshAdmins,
   onClose,
 }: EscalationModalProps) {
   return (
