@@ -25,11 +25,6 @@ async function apiFetch<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${path}`;
 
-  {
-    const method = (options.method ?? "GET").toString().toUpperCase();
-    console.log("[d4inc][apiFetch]", method, url);
-  }
-
   const headers = new Headers(options.headers);
   if (!headers.has("Content-Type") && options.body) {
     headers.set("Content-Type", "application/json");
@@ -47,20 +42,10 @@ async function apiFetch<T>(
     .json()
     .catch(() => ({}))) as ApiErrorPayload & { data?: T };
 
-  console.log(
-    "[d4inc][apiFetch]",
-    (options.method ?? "GET").toString().toUpperCase(),
-    url,
-    "->",
-    response.status
-  );
-
   if (!response.ok) {
     const message =
       (payload as ApiErrorPayload)?.message ??
       `Request failed with status ${response.status}`;
-
-    console.log("[d4inc][apiFetch][error]", url, payload);
 
     throw new ApiError(message, response.status, payload.data);
   }
@@ -170,21 +155,29 @@ export async function getProfile(token: string): Promise<ApiUser> {
     method: "GET",
     token,
   });
-  return response.data || (response as any as ApiUser);
+  return response.data;
 }
 
 export async function getComplaints(
   token: string,
-  options?: { district?: string }
+  options?: { district?: string; page?: number; pageSize?: number }
 ): Promise<{
   rows: ApiComplaint[];
   total: number;
   page: number;
   pageSize: number;
 }> {
-  const qs = options?.district
-    ? `?district=${encodeURIComponent(options.district)}`
-    : "";
+  const params = new URLSearchParams();
+  if (options?.district) {
+    params.set("district", options.district);
+  }
+  if (options?.page) {
+    params.set("page", String(options.page));
+  }
+  if (options?.pageSize) {
+    params.set("pageSize", String(options.pageSize));
+  }
+  const qs = params.toString() ? `?${params.toString()}` : "";
   const response = await apiFetch<{
     data: {
       rows: ApiComplaint[];
@@ -336,7 +329,7 @@ export async function assignComplaint(
       token,
     }
   );
-  return response.data || (response as any as ApiComplaint);
+  return response.data;
 }
 
 export async function escalateComplaint(
@@ -355,7 +348,7 @@ export async function escalateComplaint(
       token,
     }
   );
-  return response.data || (response as any as ApiComplaint);
+  return response.data;
 }
 
 export async function updateComplaintStatus(
@@ -373,7 +366,7 @@ export async function updateComplaintStatus(
       token,
     }
   );
-  return response.data || (response as any as ApiComplaint);
+  return response.data;
 }
 
 export interface ComplaintStats {
@@ -478,9 +471,20 @@ export async function getNavigatorUpdates(
 export async function getOverdueComplaints(
   token: string
 ): Promise<ApiComplaint[]> {
-  // Note: These endpoints may not exist in the new backend yet
-  // Returning empty array for now
-  return [];
+  // Try to fetch overdue complaints from the API if available.
+  // If not available or the request fails, return an empty array.
+  if (!token) return [];
+  try {
+    const response = await apiFetch<{
+      data: { rows: ApiComplaint[] };
+    }>(`/complaints?overdue=true&pageSize=100`, {
+      method: "GET",
+      token,
+    });
+    return response.data?.rows ?? [];
+  } catch {
+    return [];
+  }
 }
 
 export { ApiError };

@@ -21,6 +21,13 @@ interface CasesTabProps {
   ) => void;
   adminDistrict?: string;
   onAdminDistrictChange?: (district: string) => void;
+  // Server-side pagination props
+  complaintsPage: number;
+  complaintsPageSize: number;
+  complaintsTotal: number;
+  complaintsLoading?: boolean;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
 }
 
 export function CasesTab({
@@ -36,6 +43,12 @@ export function CasesTab({
   onUpdateStatus,
   adminDistrict,
   onAdminDistrictChange,
+  complaintsPage,
+  complaintsPageSize,
+  complaintsTotal,
+  complaintsLoading,
+  onPageChange,
+  onPageSizeChange,
 }: CasesTabProps) {
   return (
     <div className="space-y-6">
@@ -110,6 +123,12 @@ export function CasesTab({
           selectedCase={selectedCase}
           onSelect={onSelect}
           showDistrictColumn={!isAdmin}
+          page={complaintsPage}
+          pageSize={complaintsPageSize}
+          total={complaintsTotal}
+          loading={complaintsLoading}
+          onPageChange={onPageChange}
+          onPageSizeChange={onPageSizeChange}
         />
       </div>
     </div>

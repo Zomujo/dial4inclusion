@@ -38,23 +38,7 @@ export function useAssignment({
 
   const eligibleDistrictOfficers = useMemo(() => {
     if (!complaintDistrict) return districtOfficers;
-    const filtered = districtOfficers.filter(
-      (o) => o.district === complaintDistrict
-    );
-    console.log(
-      "useAssignment: complaintDistrict=",
-      complaintDistrict,
-      "districtOfficers.count=",
-      districtOfficers.length,
-      "eligible.count=",
-      filtered.length,
-      filtered.map((o) => ({
-        id: o.id,
-        fullName: o.fullName,
-        district: o.district,
-      }))
-    );
-    return filtered;
+    return districtOfficers.filter((o) => o.district === complaintDistrict);
   }, [districtOfficers, complaintDistrict]);
 
   const complaintDistrictLabel = useMemo(() => {
@@ -68,7 +52,6 @@ export function useAssignment({
 
   const fetchDistrictOfficers = useCallback(async () => {
     if (!token) return;
-    // allow admin and district officers to fetch (service applies filtering)
     if (
       currentUser?.role !== "admin" &&
       currentUser?.role !== "district_officer"
@@ -79,12 +62,6 @@ export function useAssignment({
       const response = await getDistrictOfficers(
         token,
         complaintDistrict ?? undefined
-      );
-      console.log(
-        "useAssignment.fetchDistrictOfficers: fetched",
-        (response.rows || []).length,
-        "officers",
-        response.rows
       );
       setDistrictOfficers(response.rows || []);
     } catch (error) {
@@ -98,15 +75,8 @@ export function useAssignment({
     setAssignmentModal(true);
     setAssignmentError(null);
     setAssignee("");
-    console.log(
-      "useAssignment.handleOpenAssignmentModal: complaintDistrict=",
-      complaintDistrict,
-      "current districtOfficers.count=",
-      districtOfficers.length
-    );
-    // Always attempt to fetch to ensure list is fresh and logs appear
     fetchDistrictOfficers();
-  }, [districtOfficers.length, fetchDistrictOfficers]);
+  }, [fetchDistrictOfficers]);
 
   const handleAssign = useCallback(async () => {
     if (!token) {
@@ -143,8 +113,8 @@ export function useAssignment({
         expectedResolutionDate: expectedDate,
       });
       onComplaintUpdate(complaint);
-      const officer = districtOfficers.find((o) => o.id === assignee);
-      onSuccess(officer?.fullName || assignee);
+      const assignedOfficer = districtOfficers.find((o) => o.id === assignee);
+      onSuccess(assignedOfficer?.fullName || assignee);
       setAssignmentModal(false);
       setAssignee("");
       setExpectedResolutionDate("");

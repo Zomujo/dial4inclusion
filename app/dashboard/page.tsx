@@ -68,6 +68,12 @@ export default function DashboardPage() {
     setStatusFilter,
     setLastAction,
     setComplaintStatus,
+    // Pagination state
+    complaintsPage,
+    complaintsPageSize,
+    complaintsTotal,
+    setComplaintsPage,
+    setComplaintsPageSize,
     refreshComplaints,
     handleComplaintSubmit,
     handleUpdateStatus,
@@ -199,17 +205,13 @@ export default function DashboardPage() {
 
   const handleAdminDistrictChange = useCallback(
     (district: string) => {
-      console.log("[d4inc][DashboardPage] admin district change", {
-        from: adminDistrict,
-        to: district,
-      });
       setAdminDistrict(district);
       handleCloseCaseDetailsModal();
       if (currentUser?.role === "admin") {
         refreshStats(district);
         refreshNavigatorUpdates(district);
-        // Avoid depending on async state update: fetch with explicit district.
-        refreshComplaints(district);
+        // Reset to page 1 when changing district
+        refreshComplaints(district, 1, complaintsPageSize);
       }
     },
     [
@@ -218,7 +220,7 @@ export default function DashboardPage() {
       refreshStats,
       refreshNavigatorUpdates,
       refreshComplaints,
-      adminDistrict,
+      complaintsPageSize,
     ]
   );
 
@@ -253,18 +255,42 @@ export default function DashboardPage() {
     [handleComplaintSubmit, setComplaintStatus]
   );
 
+  // Handle pagination changes - fetch new page from server
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      setComplaintsPage(newPage);
+      const district = isAdmin ? adminDistrict : undefined;
+      refreshComplaints(district, newPage, complaintsPageSize);
+    },
+    [
+      isAdmin,
+      adminDistrict,
+      complaintsPageSize,
+      refreshComplaints,
+      setComplaintsPage,
+    ]
+  );
+
+  const handlePageSizeChange = useCallback(
+    (newPageSize: number) => {
+      setComplaintsPageSize(newPageSize);
+      const district = isAdmin ? adminDistrict : undefined;
+      // Reset to page 1 when changing page size
+      refreshComplaints(district, 1, newPageSize);
+    },
+    [isAdmin, adminDistrict, refreshComplaints, setComplaintsPageSize]
+  );
+
   const renderTabContent = () => {
     switch (activeTab) {
       case "cases":
-        const casesForTab = isAdmin
-          ? filteredComplaints.filter((c) => c.district === adminDistrict)
-          : filteredComplaints;
+        // Server already filters by district for admin, no client-side filter needed
         return (
           <CasesTab
             isAdmin={isAdmin}
             isDistrictOfficer={isDistrictOfficer}
             escalatedToMe={escalatedToMe}
-            filteredComplaints={casesForTab}
+            filteredComplaints={filteredComplaints}
             statusFilter={statusFilter}
             setStatusFilter={setStatusFilter}
             selectedCase={selectedCase}
@@ -273,6 +299,12 @@ export default function DashboardPage() {
             onUpdateStatus={handleUpdateStatus}
             adminDistrict={adminDistrict}
             onAdminDistrictChange={handleAdminDistrictChange}
+            complaintsPage={complaintsPage}
+            complaintsPageSize={complaintsPageSize}
+            complaintsTotal={complaintsTotal}
+            complaintsLoading={complaintsLoading}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
           />
         );
 

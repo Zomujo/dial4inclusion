@@ -72,6 +72,10 @@ export function useComplaints({
   const [liveComplaints, setLiveComplaints] = useState<ApiComplaint[]>([]);
   const [complaintsLoading, setComplaintsLoading] = useState(false);
   const [complaintsError, setComplaintsError] = useState<string | null>(null);
+  // Server-side pagination state
+  const [complaintsPage, setComplaintsPage] = useState(1);
+  const [complaintsPageSize, setComplaintsPageSize] = useState(10);
+  const [complaintsTotal, setComplaintsTotal] = useState(0);
   const [complaintForm, setComplaintForm] =
     useState<ComplaintFormState>(initialFormState);
   const [complaintSubmitting, setComplaintSubmitting] = useState(false);
@@ -95,49 +99,32 @@ export function useComplaints({
   >({});
 
   const refreshComplaints = useCallback(
-    async (districtOverride?: string) => {
+    async (
+      districtOverride?: string,
+      pageOverride?: number,
+      pageSizeOverride?: number
+    ) => {
       if (!token) return;
       setComplaintsLoading(true);
       setComplaintsError(null);
       try {
         const resolvedAdminDistrict = districtOverride ?? adminDistrict;
-        const options =
-          currentUser?.role === "admin" && resolvedAdminDistrict
-            ? { district: resolvedAdminDistrict }
-            : undefined;
-
-        console.log("[d4inc][useComplaints.refreshComplaints]", {
-          role: currentUser?.role,
-          adminDistrict: resolvedAdminDistrict,
-          options,
-        });
-
+        const resolvedPage = pageOverride ?? complaintsPage;
+        const resolvedPageSize = pageSizeOverride ?? complaintsPageSize;
+        const options: { district?: string; page?: number; pageSize?: number } =
+          {
+            page: resolvedPage,
+            pageSize: resolvedPageSize,
+          };
+        if (currentUser?.role === "admin" && resolvedAdminDistrict) {
+          options.district = resolvedAdminDistrict;
+        }
         const response = await getComplaints(token, options);
-
-        const rows = response.rows || [];
-        const districtCounts = rows.reduce<Record<string, number>>(
-          (acc, complaint) => {
-            acc[complaint.district] = (acc[complaint.district] ?? 0) + 1;
-            return acc;
-          },
-          {}
-        );
-
-        console.log("[d4inc][useComplaints.refreshComplaints][response]", {
-          total: response.total,
-          rows: rows.length,
-          districtCounts,
-          sample: rows.slice(0, 3).map((c) => ({
-            id: c.id,
-            code: c.code,
-            district: c.district,
-            status: c.status,
-          })),
-        });
-
         setLiveComplaints(response.rows || []);
+        setComplaintsTotal(response.total);
+        setComplaintsPage(response.page);
+        setComplaintsPageSize(response.pageSize);
       } catch (error) {
-        console.log("[d4inc][useComplaints.refreshComplaints][error]", error);
         setComplaintsError(
           error instanceof Error ? error.message : "Failed to load complaints"
         );
@@ -145,7 +132,13 @@ export function useComplaints({
         setComplaintsLoading(false);
       }
     },
-    [token, currentUser?.role, adminDistrict]
+    [
+      token,
+      currentUser?.role,
+      adminDistrict,
+      complaintsPage,
+      complaintsPageSize,
+    ]
   );
 
   const handleComplaintSubmit = useCallback(
@@ -476,6 +469,12 @@ export function useComplaints({
     setLastAction,
     setComplaintsError,
     setComplaintStatus,
+    // Pagination state
+    complaintsPage,
+    complaintsPageSize,
+    complaintsTotal,
+    setComplaintsPage,
+    setComplaintsPageSize,
     // Actions
     refreshComplaints,
     handleComplaintSubmit,
