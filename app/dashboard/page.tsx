@@ -81,6 +81,7 @@ export default function DashboardPage() {
     token,
     currentUser,
     onStatsRefresh: refreshStatsForAdmin,
+    adminDistrict: isAdmin ? adminDistrict : undefined,
   });
 
   const handleAssignSuccess = useCallback(
@@ -198,11 +199,17 @@ export default function DashboardPage() {
 
   const handleAdminDistrictChange = useCallback(
     (district: string) => {
+      console.log("[d4inc][DashboardPage] admin district change", {
+        from: adminDistrict,
+        to: district,
+      });
       setAdminDistrict(district);
       handleCloseCaseDetailsModal();
       if (currentUser?.role === "admin") {
         refreshStats(district);
         refreshNavigatorUpdates(district);
+        // Avoid depending on async state update: fetch with explicit district.
+        refreshComplaints(district);
       }
     },
     [
@@ -210,6 +217,8 @@ export default function DashboardPage() {
       currentUser?.role,
       refreshStats,
       refreshNavigatorUpdates,
+      refreshComplaints,
+      adminDistrict,
     ]
   );
 

@@ -24,6 +24,12 @@ async function apiFetch<T>(
   options: RequestInit & { token?: string } = {}
 ): Promise<T> {
   const url = `${API_BASE_URL}${path}`;
+
+  {
+    const method = (options.method ?? "GET").toString().toUpperCase();
+    console.log("[d4inc][apiFetch]", method, url);
+  }
+
   const headers = new Headers(options.headers);
   if (!headers.has("Content-Type") && options.body) {
     headers.set("Content-Type", "application/json");
@@ -41,10 +47,21 @@ async function apiFetch<T>(
     .json()
     .catch(() => ({}))) as ApiErrorPayload & { data?: T };
 
+  console.log(
+    "[d4inc][apiFetch]",
+    (options.method ?? "GET").toString().toUpperCase(),
+    url,
+    "->",
+    response.status
+  );
+
   if (!response.ok) {
     const message =
       (payload as ApiErrorPayload)?.message ??
       `Request failed with status ${response.status}`;
+
+    console.log("[d4inc][apiFetch][error]", url, payload);
+
     throw new ApiError(message, response.status, payload.data);
   }
 
@@ -156,12 +173,18 @@ export async function getProfile(token: string): Promise<ApiUser> {
   return response.data || (response as any as ApiUser);
 }
 
-export async function getComplaints(token: string): Promise<{
+export async function getComplaints(
+  token: string,
+  options?: { district?: string }
+): Promise<{
   rows: ApiComplaint[];
   total: number;
   page: number;
   pageSize: number;
 }> {
+  const qs = options?.district
+    ? `?district=${encodeURIComponent(options.district)}`
+    : "";
   const response = await apiFetch<{
     data: {
       rows: ApiComplaint[];
@@ -169,7 +192,7 @@ export async function getComplaints(token: string): Promise<{
       page: number;
       pageSize: number;
     };
-  }>("/complaints", {
+  }>(`/complaints${qs}`, {
     method: "GET",
     token,
   });

@@ -60,12 +60,14 @@ interface UseComplaintsOptions {
   token: string | null;
   currentUser: ApiUser | null;
   onStatsRefresh?: () => void;
+  adminDistrict?: string;
 }
 
 export function useComplaints({
   token,
   currentUser,
   onStatsRefresh,
+  adminDistrict,
 }: UseComplaintsOptions) {
   const [liveComplaints, setLiveComplaints] = useState<ApiComplaint[]>([]);
   const [complaintsLoading, setComplaintsLoading] = useState(false);
@@ -92,21 +94,59 @@ export function useComplaints({
     Record<string, boolean>
   >({});
 
-  const refreshComplaints = useCallback(async () => {
-    if (!token) return;
-    setComplaintsLoading(true);
-    setComplaintsError(null);
-    try {
-      const response = await getComplaints(token);
-      setLiveComplaints(response.rows || []);
-    } catch (error) {
-      setComplaintsError(
-        error instanceof Error ? error.message : "Failed to load complaints"
-      );
-    } finally {
-      setComplaintsLoading(false);
-    }
-  }, [token]);
+  const refreshComplaints = useCallback(
+    async (districtOverride?: string) => {
+      if (!token) return;
+      setComplaintsLoading(true);
+      setComplaintsError(null);
+      try {
+        const resolvedAdminDistrict = districtOverride ?? adminDistrict;
+        const options =
+          currentUser?.role === "admin" && resolvedAdminDistrict
+            ? { district: resolvedAdminDistrict }
+            : undefined;
+
+        console.log("[d4inc][useComplaints.refreshComplaints]", {
+          role: currentUser?.role,
+          adminDistrict: resolvedAdminDistrict,
+          options,
+        });
+
+        const response = await getComplaints(token, options);
+
+        const rows = response.rows || [];
+        const districtCounts = rows.reduce<Record<string, number>>(
+          (acc, complaint) => {
+            acc[complaint.district] = (acc[complaint.district] ?? 0) + 1;
+            return acc;
+          },
+          {}
+        );
+
+        console.log("[d4inc][useComplaints.refreshComplaints][response]", {
+          total: response.total,
+          rows: rows.length,
+          districtCounts,
+          sample: rows.slice(0, 3).map((c) => ({
+            id: c.id,
+            code: c.code,
+            district: c.district,
+            status: c.status,
+          })),
+        });
+
+        setLiveComplaints(response.rows || []);
+      } catch (error) {
+        console.log("[d4inc][useComplaints.refreshComplaints][error]", error);
+        setComplaintsError(
+          error instanceof Error ? error.message : "Failed to load complaints"
+        );
+      } finally {
+        setComplaintsLoading(false);
+      }
+    },
+    [token, currentUser?.role, adminDistrict]
+  );
 
   const handleComplaintSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -356,7 +396,7 @@ export function useComplaints({
           try {
             const user = await getUser(token, full.createdById);
             merged = { ...merged, createdBy: user };
-          } catch (err) {
+          } catch {
             // ignore — we'll fall back to local lists or 'Unknown'
           } finally {
             setCreatorLoadingIds((s) => ({ ...s, [full.createdById!]: false }));
@@ -373,7 +413,7 @@ export function useComplaints({
           try {
             const user = await getUser(token, full.assignedToId);
             merged = { ...merged, assignedTo: user };
-          } catch (err) {
+          } catch {
             // ignore — we'll fall back to local lists or 'Unassigned'
           } finally {
             setAssignedLoadingIds((s) => ({
