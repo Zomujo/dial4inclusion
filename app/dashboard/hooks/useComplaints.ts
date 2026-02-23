@@ -102,7 +102,7 @@ export function useComplaints({
     async (
       districtOverride?: string,
       pageOverride?: number,
-      pageSizeOverride?: number
+      pageSizeOverride?: number,
     ) => {
       if (!token) return;
       setComplaintsLoading(true);
@@ -126,7 +126,7 @@ export function useComplaints({
         setComplaintsPageSize(response.pageSize);
       } catch (error) {
         setComplaintsError(
-          error instanceof Error ? error.message : "Failed to load complaints"
+          error instanceof Error ? error.message : "Failed to load complaints",
         );
       } finally {
         setComplaintsLoading(false);
@@ -138,7 +138,7 @@ export function useComplaints({
       adminDistrict,
       complaintsPage,
       complaintsPageSize,
-    ]
+    ],
   );
 
   const handleComplaintSubmit = useCallback(
@@ -196,7 +196,7 @@ export function useComplaints({
         const createPayload = base;
 
         const result =
-          currentUser?.role === "navigator"
+          currentUser?.role === "navigator" || isDetailed
             ? await submitComplaintByNavigator(token, navigatorPayload)
             : await submitComplaintApi(token, createPayload);
 
@@ -204,21 +204,21 @@ export function useComplaints({
 
         setComplaintForm(initialFormState);
         setComplaintStatus(
-          `Complaint submitted successfully. Code: ${result.code}`
+          `Complaint submitted successfully. Code: ${result.code}`,
         );
 
         return result;
       } catch (error) {
         setComplaintStatus(null);
         setComplaintsError(
-          error instanceof Error ? error.message : "Failed to submit complaint"
+          error instanceof Error ? error.message : "Failed to submit complaint",
         );
         return null;
       } finally {
         setComplaintSubmitting(false);
       }
     },
-    [token, complaintForm, refreshComplaints, currentUser?.role]
+    [token, complaintForm, refreshComplaints, currentUser?.role],
   );
 
   const handleUpdateStatus = useCallback(
@@ -268,8 +268,8 @@ export function useComplaints({
 
       setLiveComplaints((prev) =>
         prev.map((c) =>
-          c.id === complaintId ? { ...c, status: newStatus } : c
-        )
+          c.id === complaintId ? { ...c, status: newStatus } : c,
+        ),
       );
 
       try {
@@ -286,8 +286,8 @@ export function useComplaints({
                   id: c.id,
                   status: finalStatus,
                 }
-              : c
-          )
+              : c,
+          ),
         );
         setStatusUpdateFeedback({
           kind: "success",
@@ -299,8 +299,8 @@ export function useComplaints({
       } catch (error) {
         setLiveComplaints((prev) =>
           prev.map((c) =>
-            c.id === complaintId ? { ...c, status: previousStatus } : c
-          )
+            c.id === complaintId ? { ...c, status: previousStatus } : c,
+          ),
         );
         setStatusUpdateFeedback({
           kind: "error",
@@ -310,13 +310,13 @@ export function useComplaints({
         setStatusUpdatingId(null);
       }
     },
-    [token, liveComplaints, currentUser, onStatsRefresh]
+    [token, liveComplaints, currentUser, onStatsRefresh],
   );
 
   const escalatedToMe = useMemo(() => {
     if (!currentUser || currentUser.role !== "admin") return [];
     return liveComplaints.filter(
-      (c) => c.status === "escalated" && c.assignedToId === currentUser.id
+      (c) => c.status === "escalated" && c.assignedToId === currentUser.id,
     );
   }, [liveComplaints, currentUser]);
 
@@ -339,7 +339,7 @@ export function useComplaints({
     // Navigators should only see complaints they created
     if (currentUser?.role === "navigator") {
       complaints = liveComplaints.filter(
-        (c) => c.createdById === currentUser.id
+        (c) => c.createdById === currentUser.id,
       );
     }
 
@@ -361,8 +361,8 @@ export function useComplaints({
   }, [liveComplaints, statusFilter, currentUser]);
 
   const activeComplaint = selectedCase
-    ? liveComplaints.find((c) => c.id === selectedCase) ?? null
-    : filteredComplaints[0] ?? null;
+    ? (liveComplaints.find((c) => c.id === selectedCase) ?? null)
+    : (filteredComplaints[0] ?? null);
 
   const handleSelect = useCallback(
     async (id: string) => {
@@ -417,15 +417,17 @@ export function useComplaints({
         }
 
         setLiveComplaints((prev) =>
-          prev.map((c) => (c.id === id ? { ...c, ...merged } : c))
+          prev.map((c) => (c.id === id ? { ...c, ...merged } : c)),
         );
       } catch (error) {
         setComplaintsError(
-          error instanceof Error ? error.message : "Failed to load case details"
+          error instanceof Error
+            ? error.message
+            : "Failed to load case details",
         );
       }
     },
-    [token, currentUser?.role]
+    [token, currentUser?.role],
   );
 
   const closeCaseDetailsModal = useCallback(() => {
@@ -436,7 +438,7 @@ export function useComplaints({
 
   const updateComplaintInList = useCallback((complaint: ApiComplaint) => {
     setLiveComplaints((prev) =>
-      prev.map((c) => (c.id === complaint.id ? complaint : c))
+      prev.map((c) => (c.id === complaint.id ? complaint : c)),
     );
   }, []);
 
